@@ -29,9 +29,9 @@ class SAC_Agent:
                  automatic_entropy_tuning=False,
                  explore_step=2000,
                  max_train_step=50000,
-                 train_id="sac_test",
+                 train_id="sac_Pendulum_test",
                  log_interval=1000,
-                 resume=False
+                 resume=False  # if True, train from last checkpoint
                  ):
 
         self.env = env
@@ -105,7 +105,8 @@ class SAC_Agent:
         q_loss1 = F.mse_loss(q1, y)
         q_loss2 = F.mse_loss(q2, y)
 
-        # Update policy network parameter(应该先更新策略网络，否则梯度不对)
+        # Update policy network parameter
+        # policy network's update should be done before updating q network, or there will make some errors
         self.policy_optimizer.zero_grad()
         policy_loss.backward()
         self.policy_optimizer.step()

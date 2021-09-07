@@ -29,7 +29,7 @@ class DQN_Agent:
                  max_train_step=10000,
                  train_id="dqn_CartPole_test",
                  log_interval=1000,
-                 resume=False
+                 resume=False  # if True, train from last checkpoint
                  ):
         self.env = env
         self.replay_buffer = replay_buffer

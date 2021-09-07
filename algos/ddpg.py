@@ -28,7 +28,7 @@ class DDPG_Agent:
                  gaussian_noise_sigma=0.2,
                  train_id="ddpg_Pendulum_test",
                  log_interval=1000,
-                 resume=False
+                 resume=False  # if True, train from last checkpoint
                  ):
 
         self.env = env
