@@ -1,0 +1,10 @@
+
+.idea/
+
+*.pyc
+
+test/
+
+/notes.txt
+
+/run/results/
