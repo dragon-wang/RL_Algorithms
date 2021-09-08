@@ -21,7 +21,7 @@ class DQN_Agent:
                  gamma=0.99,
                  initial_eps=0.1,
                  end_eps=0.001,
-                 eps_decay_period=25e4,
+                 eps_decay_period=2000,
                  eval_eps=0.001,
                  target_update_freq=10,
                  train_interval: int = 1,

@@ -1,6 +1,7 @@
 import sys
 sys.path.append("..")
 
+import argparse
 import gym
 import torch
 import torch.nn as nn
@@ -11,7 +12,27 @@ from common.networks import MLPQsNet
 
 if __name__ == '__main__':
 
-    env = gym.make('CartPole-v0')
+    parser = argparse.ArgumentParser(description='DQN algorithm in gym environment')
+    parser.add_argument('--env', type=str, default='CartPole-v0',
+                        help='the name of environment')
+    parser.add_argument('--capacity', type=int, default=5000,
+                        help='the max size of data buffer')
+    parser.add_argument('--batch_size', type=int, default=128,
+                        help='the size of batch that sampled from buffer')
+    parser.add_argument('--explore_step', type=int, default=500,
+                        help='the steps of exploration before train')
+    parser.add_argument('--max_train_step', type=int, default=10000,
+                        help='the max train step')
+    parser.add_argument('--log_interval', type=int, default=500,
+                        help='The number of steps taken to record the model and the tensorboard')
+    parser.add_argument('--resume', action='store_true', default=False,
+                        help='whether load the last saved model to train')
+    parser.add_argument('--train_id', type=str, default='dqn_test',
+                        help='Path to save model and log tensorboard')
+
+    args = parser.parse_args()
+
+    env = gym.make(args.env)
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.n
 
@@ -21,7 +42,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(Q_net.parameters(), lr=0.001)
 
     replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=1,
-                                 capacity=5000, batch_size=32)
+                                 capacity=args.capacity, batch_size=args.batch_size)
 
     agent = DQN_Agent(env=env,
                       replay_buffer=replay_buffer,
@@ -34,11 +55,11 @@ if __name__ == '__main__':
                       eval_eps=0.001,
                       target_update_freq=10,
                       train_interval=1,
-                      explore_step=500,
-                      max_train_step=10000,
-                      train_id="dqn_CartPole_test",
-                      log_interval=500,
-                      resume=False,
+                      explore_step=args.explore_step,
+                      max_train_step=args.max_train_step,
+                      train_id=args.train_id,
+                      log_interval=args.log_interval,
+                      resume=args.resume,
                       )
 
     agent.learn()

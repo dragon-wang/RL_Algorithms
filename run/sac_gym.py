@@ -1,6 +1,7 @@
 import sys
 sys.path.append("..")
 
+import argparse
 import gym
 import torch
 import torch.nn as nn
@@ -10,10 +11,32 @@ from common.networks import MLPQsaNet, MLPSquashedReparamGaussianPolicy
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='SAC algorithm in gym environment')
+    parser.add_argument('--env', type=str, default='Pendulum-v0',
+                        help='the name of environment')
+    parser.add_argument('--capacity', type=int, default=50000,
+                        help='the max size of data buffer')
+    parser.add_argument('--batch_size', type=int, default=128,
+                        help='the size of batch that sampled from buffer')
+    parser.add_argument('--alpha', type=float, default=0.5,
+                        help='the coefficient of entropy')
+    parser.add_argument('--auto_alpha_tuning', action='store_true', default=False,
+                        help='whether automatic tune alpha')
+    parser.add_argument('--explore_step', type=int, default=2000,
+                        help='the steps of exploration before train')
+    parser.add_argument('--max_train_step', type=int, default=100000,
+                        help='the max train step')
+    parser.add_argument('--log_interval', type=int, default=1000,
+                        help='The number of steps taken to record the model and the tensorboard')
+    parser.add_argument('--train_id', type=str, default='sac_test',
+                        help='Path to save model and log tensorboard')
+    parser.add_argument('--resume', action='store_true', default=False,
+                        help='whether load the last saved model to train')
+
+    args = parser.parse_args()
+
     # create environment
-    env = gym.make("Pendulum-v0")
-    # env = gym.make('LunarLanderContinuous-v2')
-    # env = gym.make('BipedalWalker-v3')
+    env = gym.make(args.env)
 
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
@@ -35,25 +58,25 @@ if __name__ == '__main__':
     # create buffer
     replay_buffer = ReplayBuffer(obs_dim=obs_dim,
                                  act_dim=act_dim,
-                                 capacity=50000,
-                                 batch_size=128)
+                                 capacity=args.capacity,
+                                 batch_size=args.batch_size)
 
     agent = SAC_Agent(env,
                       replay_buffer=replay_buffer,
-                      policy_net = policy_net,
-                      q_net1 = q_net1,  # critic
-                      q_net2 = q_net2,
-                      policy_optimizer = policy_optimizer,
-                      q_optimizer1 = q_optimizer1,
-                      q_optimizer2 = q_optimizer2,
+                      policy_net=policy_net,
+                      q_net1=q_net1,  # critic
+                      q_net2=q_net2,
+                      policy_optimizer=policy_optimizer,
+                      q_optimizer1=q_optimizer1,
+                      q_optimizer2=q_optimizer2,
                       gamma=0.99,
                       tau=0.05,
-                      alpha=0.5,
-                      automatic_entropy_tuning=False,
-                      explore_step=2000,
-                      max_train_step=50000,
-                      train_id="sac_test",
-                      log_interval=1000,
-                      resume=False)
+                      alpha=args.alpha,
+                      auto_alpha_tuning=args.auto_alpha_tuning,
+                      explore_step=args.explore_step,
+                      max_train_step=args.max_train_step,
+                      train_id=args.train_id,
+                      log_interval=args.log_interval,
+                      resume=args.resume)
 
     agent.learn()

@@ -1,6 +1,7 @@
 import sys
 sys.path.append("..")
 
+import argparse
 import gym
 import torch
 import torch.nn as nn
@@ -10,10 +11,28 @@ from common.buffers import ReplayBuffer
 from common.networks import MLPQsaNet, DDPGMLPActor
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='DDPG algorithm in gym environment')
+    parser.add_argument('--env', type=str, default='Pendulum-v0',
+                        help='the name of environment')
+    parser.add_argument('--capacity', type=int, default=50000,
+                        help='the max size of data buffer')
+    parser.add_argument('--batch_size', type=int, default=64,
+                        help='the size of batch that sampled from buffer')
+    parser.add_argument('--explore_step', type=int, default=2000,
+                        help='the steps of exploration before train')
+    parser.add_argument('--max_train_step', type=int, default=100000,
+                        help='the max train step')
+    parser.add_argument('--log_interval', type=int, default=1000,
+                        help='The number of steps taken to record the model and the tensorboard')
+    parser.add_argument('--train_id', type=str, default='ddpg_test',
+                        help='Path to save model and log tensorboard')
+    parser.add_argument('--resume', action='store_true', default=False,
+                        help='whether load the last saved model to train')
+
+    args = parser.parse_args()
+
     # create environment
-    env = gym.make("Pendulum-v0")
-    # env = gym.make('LunarLanderContinuous-v2')
-    # env = gym.make('BipedalWalker-v3')
+    env = gym.make(args.env)
 
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
@@ -33,21 +52,21 @@ if __name__ == '__main__':
     # create buffer
     replay_buffer = ReplayBuffer(obs_dim=obs_dim,
                                  act_dim=act_dim,
-                                 capacity=50000,
-                                 batch_size=64)
+                                 capacity=args.capacity,
+                                 batch_size=args.batch_size)
 
     # create agent
     agent = DDPG_Agent(env=env, replay_buffer=replay_buffer,
                        actor_net=actor_net, critic_net=critic_net,
                        actor_optimizer=actor_optimizer, critic_optimizer=critic_optimizer,
                        gamma=0.99,
-                       tau=0.005,  # used to update target network, w' = tau*w + (1-tau)*w'
+                       tau=0.005,
                        gaussian_noise_sigma=0.1,
-                       explore_step=1000,
-                       max_train_step=100000,
-                       train_id="ddpg_BipedalWalker_test",
-                       log_interval=1000,
-                       resume=False
+                       explore_step=args.explore_step,
+                       max_train_step=args.max_train_step,
+                       train_id=args.train_id,
+                       log_interval=args.log_interval,
+                       resume=args.resume
                        )
 
     agent.learn()

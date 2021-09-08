@@ -26,7 +26,7 @@ class SAC_Agent:
                  gamma=0.99,
                  tau=0.05,
                  alpha=0.5,
-                 automatic_entropy_tuning=False,
+                 auto_alpha_tuning=False,
                  explore_step=2000,
                  max_train_step=50000,
                  train_id="sac_Pendulum_test",
@@ -50,9 +50,9 @@ class SAC_Agent:
         self.gamma = gamma
         self.tau = tau
         self.alpha = alpha
-        self.automatic_entropy_tuning = automatic_entropy_tuning
+        self.auto_alpha_tuning = auto_alpha_tuning
 
-        if self.automatic_entropy_tuning:
+        if self.auto_alpha_tuning:
             self.target_entropy = -np.prod(self.env.action_space.shape).item()
             self.log_alpha = torch.zeros(1, requires_grad=True)
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=3e-3)
@@ -121,7 +121,7 @@ class SAC_Agent:
         q_loss2.backward()
         self.q_optimizer2.step()
 
-        if self.automatic_entropy_tuning:
+        if self.auto_alpha_tuning:
             alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
