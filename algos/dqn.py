@@ -23,13 +23,14 @@ class DQN_Agent:
                  end_eps=0.001,
                  eps_decay_period=2000,
                  eval_eps=0.001,
-                 target_update_freq=10,
+                 target_update_freq =10,
                  train_interval: int = 1,
                  explore_step=500,
                  max_train_step=10000,
                  train_id="dqn_CartPole_test",
                  log_interval=1000,
-                 resume=False  # if True, train from last checkpoint
+                 resume=False,  # if True, train from last checkpoint
+                 device='cpu'
                  ):
         self.env = env
         self.replay_buffer = replay_buffer
@@ -39,8 +40,10 @@ class DQN_Agent:
         self.train_interval = train_interval
         self.target_update_freq = target_update_freq
 
-        self.Q_net = Q_net
-        self.target_Q_net = copy.deepcopy(self.Q_net)
+        self.device = torch.device(device)
+
+        self.Q_net = Q_net.to(self.device)
+        self.target_Q_net = copy.deepcopy(self.Q_net).to(self.device)
         self.optimizer = optimizer
 
         # Decay for epsilon
@@ -67,8 +70,8 @@ class DQN_Agent:
 
         if np.random.uniform(0, 1) > eps:
             with torch.no_grad():
-                obs = torch.FloatTensor(obs).reshape(1, -1)
-                return int(self.Q_net(obs).argmax(dim=1))
+                obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
+                return int(self.Q_net(obs).argmax(dim=1).cpu())
         else:
             return self.env.action_space.sample()
 
@@ -79,11 +82,11 @@ class DQN_Agent:
 
         # Sample
         batch = self.replay_buffer.sample()
-        obs = batch["obs"]
-        acts = batch["acts"]
-        rews = batch["rews"]
-        next_obs = batch["next_obs"]
-        done = batch["done"]
+        obs = batch["obs"].to(self.device)
+        acts = batch["acts"].to(self.device)
+        rews = batch["rews"].to(self.device)
+        next_obs = batch["next_obs"].to(self.device)
+        done = batch["done"].to(self.device)
 
         # Compute target Q value
         with torch.no_grad():
@@ -107,7 +110,7 @@ class DQN_Agent:
         if self.train_step % self.target_update_freq == 0:
             hard_target_update(self.Q_net, self.target_Q_net)
 
-        return Q_loss.item()
+        return Q_loss.cpu().item()
 
     def learn(self):
         if self.resume:

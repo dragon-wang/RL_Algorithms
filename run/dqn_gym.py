@@ -29,6 +29,8 @@ if __name__ == '__main__':
                         help='whether load the last saved model to train')
     parser.add_argument('--train_id', type=str, default='dqn_test',
                         help='Path to save model and log tensorboard')
+    parser.add_argument('--device', type=str, default='cpu',
+                        help='Choose cpu or cuda')
 
     args = parser.parse_args()
 
@@ -60,6 +62,7 @@ if __name__ == '__main__':
                       train_id=args.train_id,
                       log_interval=args.log_interval,
                       resume=args.resume,
+                      device=args.device
                       )
 
     agent.learn()

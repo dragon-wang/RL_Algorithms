@@ -28,7 +28,8 @@ class DDPG_Agent:
                  gaussian_noise_sigma=0.2,
                  train_id="ddpg_Pendulum_test",
                  log_interval=1000,
-                 resume=False  # if True, train from last checkpoint
+                 resume=False,  # if True, train from last checkpoint
+                 device='cpu'
                  ):
 
         self.env = env
@@ -36,11 +37,13 @@ class DDPG_Agent:
         self.action_bound = env.action_space.high[0]
         self.replay_buffer = replay_buffer
 
+        self.device = torch.device(device)
+
         # the network and optimizers
-        self.actor_net = actor_net
-        self.target_actor_net = copy.deepcopy(self.actor_net)
-        self.critic_net = critic_net
-        self.target_critic_net = copy.deepcopy(self.critic_net)
+        self.actor_net = actor_net.to(self.device)
+        self.target_actor_net = copy.deepcopy(self.actor_net).to(self.device)
+        self.critic_net = critic_net.to(self.device)
+        self.target_critic_net = copy.deepcopy(self.critic_net).to(self.device)
         self.actor_optimizer = actor_optimizer
         self.critic_optimizer = critic_optimizer
 
@@ -65,9 +68,9 @@ class DDPG_Agent:
 
     def choose_action(self, obs, eval=False):
         """Choose an action by deterministic policy with some gaussian noise"""
-        obs = torch.FloatTensor(obs).reshape(1, -1)
+        obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
         with torch.no_grad():
-            action = self.actor_net(obs).numpy().flatten()
+            action = self.actor_net(obs).cpu().numpy().flatten()
         if eval:
             return action
         else:
@@ -78,11 +81,11 @@ class DDPG_Agent:
 
         # Sample
         batch = self.replay_buffer.sample()
-        obs = batch["obs"]
-        acts = batch["acts"]
-        rews = batch["rews"]
-        next_obs = batch["next_obs"]
-        done = batch["done"]
+        obs = batch["obs"].to(self.device)
+        acts = batch["acts"].to(self.device)
+        rews = batch["rews"].to(self.device)
+        next_obs = batch["next_obs"].to(self.device)
+        done = batch["done"].to(self.device)
 
         # Compute target Q value
         with torch.no_grad():
@@ -113,7 +116,7 @@ class DDPG_Agent:
         soft_target_update(self.critic_net, self.target_critic_net, tau=self.tau)
 
         self.train_step += 1
-        return actor_loss.item(), critic_loss.item()
+        return actor_loss.cpu().item(), critic_loss.cpu().item()
 
     def learn(self):
         if self.resume:

@@ -31,18 +31,21 @@ class SAC_Agent:
                  max_train_step=50000,
                  train_id="sac_Pendulum_test",
                  log_interval=1000,
-                 resume=False  # if True, train from last checkpoint
+                 resume=False,  # if True, train from last checkpoint
+                 device='cpu'
                  ):
 
         self.env = env
         self.replay_buffer = replay_buffer
 
+        self.device = torch.device(device)
+
         # the network and optimizers
-        self.policy_net = policy_net
-        self.q_net1 = q_net1
-        self.q_net2 = q_net2
-        self.target_q_net1 = copy.deepcopy(self.q_net1)
-        self.target_q_net2 = copy.deepcopy(self.q_net2)
+        self.policy_net = policy_net.to(self.device)
+        self.q_net1 = q_net1.to(self.device)
+        self.q_net2 = q_net2.to(self.device)
+        self.target_q_net1 = copy.deepcopy(self.q_net1).to(self.device)
+        self.target_q_net2 = copy.deepcopy(self.q_net2).to(self.device)
         self.policy_optimizer = policy_optimizer
         self.q_optimizer1 = q_optimizer1
         self.q_optimizer2 = q_optimizer2
@@ -54,7 +57,7 @@ class SAC_Agent:
 
         if self.auto_alpha_tuning:
             self.target_entropy = -np.prod(self.env.action_space.shape).item()
-            self.log_alpha = torch.zeros(1, requires_grad=True)
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=3e-3)
             self.alpha = torch.exp(self.log_alpha)
 
@@ -75,19 +78,20 @@ class SAC_Agent:
 
     def choose_action(self, obs, eval=False):
         with torch.no_grad():
-            action, log_prob = self.policy_net(torch.tensor([obs], dtype=torch.float32))
+            obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
+            action, log_prob = self.policy_net(obs)
 
-        return action.numpy().flatten(), log_prob
+        return action.cpu().numpy().flatten(), log_prob
 
     def train(self):
 
         # Sample
         batch = self.replay_buffer.sample()
-        obs = batch["obs"]
-        acts = batch["acts"]
-        rews = batch["rews"]
-        next_obs = batch["next_obs"]
-        done = batch["done"]
+        obs = batch["obs"].to(self.device)
+        acts = batch["acts"].to(self.device)
+        rews = batch["rews"].to(self.device)
+        next_obs = batch["next_obs"].to(self.device)
+        done = batch["done"].to(self.device)
 
         # compute policy Loss
         a, log_prob = self.policy_net(obs)
@@ -136,7 +140,7 @@ class SAC_Agent:
         soft_target_update(self.q_net1, self.target_q_net1, tau=self.tau)
         soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
 
-        return q_loss1.item(), q_loss2.item(), policy_loss.item(), alpha_loss.item()
+        return q_loss1.cpu().item(), q_loss2.cpu().item(), policy_loss.cpu().item(), alpha_loss.cpu().item()
 
     def learn(self):
         if self.resume:

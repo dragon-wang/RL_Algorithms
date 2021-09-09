@@ -28,6 +28,8 @@ if __name__ == '__main__':
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
+    parser.add_argument('--device', type=str, default='cpu',
+                        help='Choose cpu or cuda')
 
     args = parser.parse_args()
 
@@ -66,7 +68,8 @@ if __name__ == '__main__':
                        max_train_step=args.max_train_step,
                        train_id=args.train_id,
                        log_interval=args.log_interval,
-                       resume=args.resume
+                       resume=args.resume,
+                       device=args.device
                        )
 
     agent.learn()
