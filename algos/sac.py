@@ -198,7 +198,7 @@ class SAC_Agent:
         torch.save(checkpoint, self.checkpoint_path)
 
     def load_agent_checkpoint(self):
-        checkpoint = torch.load(self.checkpoint_path)
+        checkpoint = torch.load(self.checkpoint_path, map_location=self.device)  # can load gpu's data on cpu machine
         self.q_net1.load_state_dict(checkpoint["q_net1"])
         self.q_net2.load_state_dict(checkpoint["q_net2"])
         self.policy_net.load_state_dict(checkpoint["policy_net"])

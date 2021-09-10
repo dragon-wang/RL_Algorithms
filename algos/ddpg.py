@@ -174,7 +174,7 @@ class DDPG_Agent:
         torch.save(checkpoint, self.checkpoint_path)
 
     def load_agent_checkpoint(self):
-        checkpoint = torch.load(self.checkpoint_path)
+        checkpoint = torch.load(self.checkpoint_path, map_location=self.device)  # can load gpu's data on cpu machine
         self.actor_net.load_state_dict(checkpoint["actor_net"])
         self.target_actor_net.load_state_dict(checkpoint["actor_net"])
         self.critic_net.load_state_dict(checkpoint["critic_net"])

@@ -167,7 +167,7 @@ class DQN_Agent:
         # print("checkpoint saved in " + self.checkpoint_path + " at " + str(self.train_step+1) + " step")
 
     def load_agent_checkpoint(self):
-        checkpoint = torch.load(self.checkpoint_path)
+        checkpoint = torch.load(self.checkpoint_path, map_location=self.device)  # can load gpu's data on cpu machine
         self.Q_net.load_state_dict(checkpoint["net"])
         self.target_Q_net = copy.deepcopy(self.Q_net)
         self.optimizer.load_state_dict(checkpoint["optimizer"])
