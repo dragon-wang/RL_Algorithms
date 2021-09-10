@@ -31,6 +31,28 @@ def explore_before_train(env:Env, buffer, explore_step):
             obs = next_obs
 
 
+def evaluate(agent, episode_num, render):
+    agent.load_agent_checkpoint()
+    eval_env = agent.env
+    avg_reward = 0
+    print("----------------evaluating-------------------")
+    for i in range(episode_num):
+        episode_reward = 0
+        obs, done = eval_env.reset(), False
+        while not done:
+            if render:
+                eval_env.render()
+            action = agent.choose_action(obs, eval=True)
+            action = action[0] if isinstance(action, tuple) else action
+            obs, reward, done, _ = eval_env.step(action)
+            avg_reward += reward
+            episode_reward += reward
+        print("episode:{} \t reward:{}".format(i + 1, episode_reward))
+    avg_reward /= episode_num
+    print("=====>average reward:{}".format(avg_reward))
+    print("---------------------------------------------")
+
+
 class OrnsteinUhlenbeckActionNoise:
     """
     used in DDPG. OU noise

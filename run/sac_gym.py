@@ -8,7 +8,7 @@ import torch.nn as nn
 from algos.sac import SAC_Agent
 from common.buffers import ReplayBuffer
 from common.networks import MLPQsaNet, MLPSquashedReparamGaussianPolicy
-
+from utils import train_tools
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='SAC algorithm in gym environment')
@@ -34,6 +34,8 @@ if __name__ == '__main__':
                         help='whether load the last saved model to train')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Choose cpu or cuda')
+    parser.add_argument('--eval', action='store_true', default=False,
+                        help='evaluate the agent')
 
     args = parser.parse_args()
 
@@ -82,4 +84,7 @@ if __name__ == '__main__':
                       resume=args.resume,
                       device=args.device)
 
-    agent.learn()
+    if args.eval:
+        train_tools.evaluate(agent, 10, render=True)
+    else:
+        agent.learn()
