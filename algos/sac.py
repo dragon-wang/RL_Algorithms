@@ -195,6 +195,9 @@ class SAC_Agent:
             "train_step": self.train_step,
             "episode_num": self.episode_num
         }
+        if self.auto_alpha_tuning:
+            checkpoint["log_alpha"] = self.log_alpha
+            checkpoint["alpha_optimizer"] = self.alpha_optimizer.state_dict()
         torch.save(checkpoint, self.checkpoint_path)
 
     def load_agent_checkpoint(self):
@@ -207,6 +210,9 @@ class SAC_Agent:
         self.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
         self.train_step = checkpoint["train_step"]
         self.episode_num = checkpoint["episode_num"]
+        if self.auto_alpha_tuning:
+            self.log_alpha = checkpoint["log_alpha"]
+            self.alpha_optimizer.load_state_dict(checkpoint["alpha_optimizer"])
         print("load checkpoint from " + self.checkpoint_path +
               " and start train from " + str(self.train_step+1) + "step")
 
