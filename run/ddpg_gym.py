@@ -5,7 +5,7 @@ import argparse
 import gym
 import torch
 import torch.nn as nn
-from algos.dqn import DQN_Agent
+import numpy as np
 from algos.ddpg import DDPG_Agent
 from common.buffers import ReplayBuffer
 from common.networks import MLPQsaNet, DDPGMLPActor
@@ -33,11 +33,17 @@ if __name__ == '__main__':
                         help='Choose cpu or cuda')
     parser.add_argument('--eval', action='store_true', default=False,
                         help='evaluate the agent')
+    parser.add_argument('--seed', type=int, default=10,
+                        help='the random seed')
 
     args = parser.parse_args()
 
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+
     # create environment
     env = gym.make(args.env)
+    env.seed(args.seed)
 
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
