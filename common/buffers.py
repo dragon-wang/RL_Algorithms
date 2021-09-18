@@ -19,11 +19,11 @@ class ReplayBuffer:
         self.crt_size = 0  # The current size of the buffer
 
         # Use numpy.ndarray to initialize the replay buffer
-        self.obs = np.zeros(shape=[self.max_size] + self.obs_dim)
-        self.acts = np.zeros((self.max_size, self.act_dim))
-        self.rews = np.zeros(self.max_size)
-        self.next_obs = np.zeros(shape=[self.max_size] + self.obs_dim)
-        self.done = np.zeros(self.max_size)
+        self.obs = np.zeros(shape=[self.max_size] + self.obs_dim, dtype=np.float32)
+        self.acts = np.zeros((self.max_size, self.act_dim), dtype=np.float32)
+        self.rews = np.zeros(self.max_size, dtype=np.float32)
+        self.next_obs = np.zeros(shape=[self.max_size] + self.obs_dim, dtype=np.float32)
+        self.done = np.zeros(self.max_size, dtype=np.float32)
 
     def add(self, obs, act, rew, next_obs, done):
         self.obs[self.ptr] = obs
