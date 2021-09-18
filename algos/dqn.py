@@ -70,7 +70,7 @@ class DQN_Agent:
 
         if np.random.uniform(0, 1) > eps:
             with torch.no_grad():
-                obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
+                obs = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
                 return int(self.Q_net(obs).argmax(dim=1).cpu())
         else:
             return self.env.action_space.sample()
@@ -129,6 +129,7 @@ class DQN_Agent:
 
         while self.train_step < self.max_train_step:
             action = self.choose_action(np.array(obs))
+            print(action)
             next_obs, reward, done, info = self.env.step(action)
             episode_reward += reward
 
@@ -138,6 +139,7 @@ class DQN_Agent:
 
             if (self.train_step+1) % self.train_interval == 0:
                 Q_loss = self.train()
+                print(Q_loss)
 
             if done:
                 self.episode_num += 1

@@ -114,6 +114,21 @@ class MLPSquashedReparamGaussianPolicy(nn.Module):
         return action, log_prob
 
 
-if __name__ == '__main__':
-    policy = MLPSquashedReparamGaussianPolicy(3, 2, 1.0, [256, 256])
-    # print(policy)
+class ConvAtariQsNet(nn.Module):
+    def __init__(self, num_frames_stack, act_dim):
+        super(ConvAtariQsNet, self).__init__()
+        self.c1 = nn.Conv2d(num_frames_stack, 32, kernel_size=8, stride=4)
+        self.c2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.c3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        self.l1 = nn.Linear(3136, 512)
+        self.l2 = nn.Linear(512, act_dim)
+
+    def forward(self, obs):
+        q = F.relu(self.c1(obs))
+        q = F.relu(self.c2(q))
+        q = F.relu(self.c3(q))
+        q = F.relu(self.l1(q.reshape(-1, 3136)))
+        # q = F.relu(self.l1(q.flatten(1)))
+        q = self.l2(q)
+        return q
+
