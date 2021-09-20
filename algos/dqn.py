@@ -60,7 +60,7 @@ class DQN_Agent:
 
         # log dir and interval
         self.log_interval = log_interval
-        self.result_dir = os.path.join("./results", train_id)
+        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
         log_tools.make_dir(self.result_dir)
         self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
         self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
