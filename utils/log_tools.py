@@ -1,6 +1,8 @@
 import os
 from torch.utils.tensorboard import SummaryWriter
 
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def make_dir(path):
     if not os.path.exists(path):
@@ -31,4 +33,3 @@ class TensorboardLogger:
     def log_eval_data(self, log_datas: dict, step):
         for log_data in log_datas.items():
             self.writer.add_scalar("evaluate_data/" + log_data[0], log_data[1], step)
-

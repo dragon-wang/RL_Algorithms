@@ -1,5 +1,8 @@
 import sys
-sys.path.append("..")
+import os
+from pathlib import Path
+# sys.path.append(str(Path(__file__).absolute().parent.parent))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
 import gym
@@ -67,10 +70,13 @@ if __name__ == '__main__':
     q_optimizer2 = torch.optim.Adam(q_net2.parameters(), lr=4e-3)
 
     # create buffer
-    replay_buffer = ReplayBuffer(obs_dim=obs_dim,
-                                 act_dim=act_dim,
-                                 capacity=args.capacity,
-                                 batch_size=args.batch_size)
+    if args.eval:
+        replay_buffer = None
+    else:
+        replay_buffer = ReplayBuffer(obs_dim=obs_dim,
+                                     act_dim=act_dim,
+                                     capacity=args.capacity,
+                                     batch_size=args.batch_size)
 
     agent = SAC_Agent(env,
                       replay_buffer=replay_buffer,

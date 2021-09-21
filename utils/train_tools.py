@@ -34,10 +34,12 @@ def explore_before_train(env:Env, buffer, explore_step):
 def evaluate(agent, episode_num, render):
     agent.load_agent_checkpoint()
     eval_env = agent.env
-    avg_reward = 0
+    total_reward = 0
+    total_length = 0
     print("----------------evaluating-------------------")
     for i in range(episode_num):
         episode_reward = 0
+        episode_length = 0
         obs, done = eval_env.reset(), False
         while not done:
             if render:
@@ -45,11 +47,17 @@ def evaluate(agent, episode_num, render):
             action = agent.choose_action(obs, eval=True)
             action = action[0] if isinstance(action, tuple) else action
             obs, reward, done, _ = eval_env.step(action)
-            avg_reward += reward
             episode_reward += reward
-        print("episode:{} \t reward:{}".format(i + 1, episode_reward))
-    avg_reward /= episode_num
-    print("=====>average reward:{}".format(avg_reward))
+            episode_length += 1
+            if done:
+                total_reward += episode_reward
+                total_length += episode_length
+                print("episode:{} \t step length: {} \t reward: {}".format(i + 1, episode_length, episode_reward))
+
+    avg_reward = total_reward / episode_num
+    avg_length = total_length / episode_num
+
+    print("=====>average step length: {}\t average reward: {}".format(avg_length, avg_reward))
     print("---------------------------------------------")
 
 
@@ -57,7 +65,7 @@ class OrnsteinUhlenbeckActionNoise:
     """
     used in DDPG. OU noise
     """
-    def __init__(self, action_dim, mu = 0, theta = 0.15, sigma = 0.2):
+    def __init__(self, action_dim, mu=0, theta=0.15, sigma=0.2):
         self.action_dim = action_dim
         self.mu = mu
         self.theta = theta

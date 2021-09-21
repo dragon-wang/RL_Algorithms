@@ -1,5 +1,6 @@
 import sys
-sys.path.append("..")
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
 import gym
@@ -37,13 +38,14 @@ if __name__ == '__main__':
                         help='evaluate the agent')
     parser.add_argument('--seed', type=int, default=10,
                         help='the random seed')
-
+    parser.add_argument('--scale_obs', action='store_true', default=False,
+                        help='whether scale the obs to 0-1')
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    env = atari_preprocess.make_env(args.env, scale_obs=False)
+    env = atari_preprocess.make_env(args.env, scale_obs=args.scale_obs)
     env.seed(args.seed)
 
     obs_dim = env.observation_space.shape
@@ -53,8 +55,11 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(Q_net.parameters(), lr=1e-4)
 
-    replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=1,
-                                 capacity=args.capacity, batch_size=args.batch_size)
+    if args.eval:
+        replay_buffer = None
+    else:
+        replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=1,
+                                     capacity=args.capacity, batch_size=args.batch_size)
 
     agent = DQN_Agent(env=env,
                       replay_buffer=replay_buffer,

@@ -1,5 +1,6 @@
 import sys
-sys.path.append("..")
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
 import gym
@@ -54,8 +55,11 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(Q_net.parameters(), lr=0.001)
 
-    replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=1,
-                                 capacity=args.capacity, batch_size=args.batch_size)
+    if args.eval:
+        replay_buffer = None
+    else:
+        replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=1,
+                                     capacity=args.capacity, batch_size=args.batch_size)
 
     agent = DQN_Agent(env=env,
                       replay_buffer=replay_buffer,

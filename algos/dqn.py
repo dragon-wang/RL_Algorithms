@@ -129,7 +129,6 @@ class DQN_Agent:
 
         while self.train_step < self.max_train_step:
             action = self.choose_action(np.array(obs))
-            print(action)
             next_obs, reward, done, info = self.env.step(action)
             episode_reward += reward
 
@@ -139,7 +138,6 @@ class DQN_Agent:
 
             if (self.train_step+1) % self.train_interval == 0:
                 Q_loss = self.train()
-                print(Q_loss)
 
             if done:
                 self.episode_num += 1
