@@ -110,8 +110,9 @@ class MLPSquashedReparamGaussianPolicy(nn.Module):
 
         action = self.act_bound * a
         log_prob = torch.sum(dist.log_prob(u) - torch.log(1 - a.pow(2) + 1e-6), dim=1)
+        mu_action = self.act_bound * mu  # used in evaluation
 
-        return action, log_prob
+        return action, log_prob, mu_action
 
 
 class ConvAtariQsNet(nn.Module):
