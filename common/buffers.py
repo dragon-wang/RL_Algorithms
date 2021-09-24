@@ -42,3 +42,26 @@ class ReplayBuffer:
                     rews=torch.FloatTensor(self.rews[ind]),  # 1D
                     next_obs=torch.FloatTensor(self.next_obs[ind]),
                     done=torch.FloatTensor(self.done[ind]))  # 1D
+
+
+class OfflineBuffer:
+    """
+    Used in offline setting
+    """
+    def __init__(self, data: dict, batch_size: int):
+        self.obs = np.array(data["obs"], dtype=np.float32)
+        self.acts = np.array(data["acts"], dtype=np.float32)
+        self.rews = np.array(data["rews"], dtype=np.float32)
+        self.next_obs = np.array(data["next_obs"], dtype=np.float32)
+        self.done = np.array(data["done"], dtype=np.float32)
+
+        self.data_num = self.obs.shape[0]
+        self.batch_size = batch_size
+
+    def sample(self) -> dict:
+        ind = np.random.choice(self.data_num, size=self.batch_size, replace=False)
+        return dict(obs=torch.FloatTensor(self.obs[ind]),
+                    acts=torch.FloatTensor(self.acts[ind]),
+                    rews=torch.FloatTensor(self.rews[ind]),  # 1D
+                    next_obs=torch.FloatTensor(self.next_obs[ind]),
+                    done=torch.FloatTensor(self.done[ind]))  # 1D

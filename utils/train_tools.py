@@ -14,7 +14,7 @@ def soft_target_update(main, target, tau=0.005):
         target_param.data.copy_(tau * main_param.data + (1.0 - tau) * target_param.data)
 
 
-def explore_before_train(env:Env, buffer, explore_step):
+def explore_before_train(env: Env, buffer, explore_step):
     obs = env.reset()
     done = False
     t = tqdm(range(explore_step))
@@ -31,8 +31,9 @@ def explore_before_train(env:Env, buffer, explore_step):
             obs = next_obs
 
 
-def evaluate(agent, episode_num, render):
-    agent.load_agent_checkpoint()
+def evaluate(agent, episode_num, render=True, offline_eval=False):
+    if not offline_eval:
+        agent.load_agent_checkpoint()
     eval_env = agent.env
     total_reward = 0
     total_length = 0
@@ -59,6 +60,8 @@ def evaluate(agent, episode_num, render):
 
     print("=====>average step length: {}\t average reward: {}".format(avg_length, avg_reward))
     print("---------------------------------------------")
+
+    return avg_reward, avg_length
 
 
 class OrnsteinUhlenbeckActionNoise:
