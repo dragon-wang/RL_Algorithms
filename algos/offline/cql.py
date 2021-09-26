@@ -1,0 +1,317 @@
+import copy
+import os
+import numpy as np
+import torch
+import torch.nn.functional as F
+from common.buffers import OfflineBuffer
+from utils.train_tools import soft_target_update, evaluate
+from utils import log_tools
+
+
+class CQL_Agent:
+    """
+    Implementation of Conservative Q-Learning for Offline Reinforcement Learning (CQL)
+    https://arxiv.org/abs/2006.04779
+    This is CQL based on SAC, which is suitable for continuous action space.
+    """
+    def __init__(self,
+                 env,
+                 data_buffer: OfflineBuffer,
+                 policy_net: torch.nn.Module,  # actor
+                 q_net1: torch.nn.Module,  # critic
+                 q_net2: torch.nn.Module,
+                 policy_lr=3e-4,
+                 qf_lr=3e-4,
+                 gamma=0.99,
+                 tau=0.05,
+                 alpha=0.5,
+                 auto_alpha_tuning=False,
+
+                 # CQL
+                 min_q_weight=5.0,  # the value of alpha in CQL loss, set to 5.0 or 10.0 if not using lagrange
+                 entropy_backup=False,  # whether use sac style target Q with entropy
+                 max_q_backup=False,  # whether use max q backup
+                 with_lagrange=False,  # whether auto tune alpha in Conservative Q Loss(different from the alpha in sac)
+                 lagrange_thresh=0.0,  # the hyper-parameter used in automatic tuning alpha in cql loss
+                 n_action_samples=10,  # the number of action sampled in importance sampling
+
+                 max_train_step=2000000,
+                 log_interval=1000,
+                 eval_freq=5000,
+                 train_id="sac_Pendulum_test",
+                 resume=False,  # if True, train from last checkpoint
+                 device='cpu',
+                 ):
+
+        self.env = env
+        self.data_buffer = data_buffer
+
+        self.device = torch.device(device)
+
+        # the network and optimizers
+        self.policy_net = policy_net.to(self.device)
+        self.q_net1 = q_net1.to(self.device)
+        self.q_net2 = q_net2.to(self.device)
+        self.target_q_net1 = copy.deepcopy(self.q_net1).to(self.device)
+        self.target_q_net2 = copy.deepcopy(self.q_net2).to(self.device)
+        self.policy_optimizer = torch.optim.Adam(policy_net.parameters(), lr=policy_lr)
+        self.q_optimizer1 = torch.optim.Adam(q_net1.parameters(), lr=qf_lr)
+        self.q_optimizer2 = torch.optim.Adam(q_net2.parameters(), lr=qf_lr)
+
+        self.gamma = gamma
+        self.tau = tau
+        self.alpha = alpha
+        self.auto_alpha_tuning = auto_alpha_tuning
+
+        if self.auto_alpha_tuning:
+            self.target_entropy = -np.prod(self.env.action_space.shape).item()
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=policy_lr)
+
+        self.max_train_step = max_train_step
+        self.eval_freq = eval_freq
+        self.train_step = 0
+
+        self.resume = resume  # whether load checkpoint start train from last time
+
+        # CQL
+        self.min_q_weight = min_q_weight
+        self.entropy_backup = entropy_backup
+        self.max_q_backup = max_q_backup
+        self.with_lagrange = with_lagrange
+        self.lagrange_thresh = lagrange_thresh
+        self.n_action_samples = n_action_samples
+
+        if self.with_lagrange:
+            self.log_alpha_prime = torch.zeros(1, requires_grad=True, device=self.device)
+            self.alpha_prime_optimizer = torch.optim.Adam([self.log_alpha_prime], lr=qf_lr)
+
+        # log dir and interval
+        self.log_interval = log_interval
+        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
+        log_tools.make_dir(self.result_dir)
+        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
+        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
+
+    def choose_action(self, obs, eval=True):
+        with torch.no_grad():
+            obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
+            action, log_prob, mu_action = self.policy_net(obs)
+
+            if eval:
+                action = mu_action  # if eval, use mu as the action
+
+        return action.cpu().numpy().flatten(), log_prob
+
+    def get_policy_actions(self, obs, n_action_samples):
+        """
+        get n*m actions from m obs
+        :param obs: m obs
+        :param n_action_samples: num of n
+        """
+        obs_temp = torch.repeat_interleave(obs, n_action_samples, dim=0).to(self.device)
+        with torch.no_grad():
+            actions, log_probs, _ = self.policy_net(obs_temp)
+        return actions, log_probs.reshape(obs.shape[0], n_action_samples, 1)
+
+    def get_actions_values(self, obs, actions, n_action_samples, q_net):
+        """
+        get n*m Q(s,a) from m obs and n*m actions
+        :param obs: m obs
+        :param actions: n actions
+        :param n_action_samples: num of n
+        :param q_net:
+        """
+        obs_temp = torch.repeat_interleave(obs, n_action_samples, dim=0).to(self.device)
+        q = q_net(obs_temp, actions)
+        q = q.reshape(obs.shape[0], n_action_samples, 1)
+        return q
+
+    def train(self):
+
+        # Sample
+        batch = self.data_buffer.sample()
+        obs = batch["obs"].to(self.device)
+        acts = batch["acts"].to(self.device)
+        rews = batch["rews"].to(self.device)
+        next_obs = batch["next_obs"].to(self.device)
+        done = batch["done"].to(self.device)
+
+        """
+        SAC Loss
+        """
+        # compute policy Loss
+        a, log_prob, _ = self.policy_net(obs)
+        min_q = torch.min(self.q_net1(obs, a), self.q_net2(obs, a)).squeeze(1)
+        policy_loss = (self.alpha * log_prob - min_q).mean()
+
+        # compute Q Loss
+        q1 = self.q_net1(obs, acts).squeeze(1)
+        q2 = self.q_net2(obs, acts).squeeze(1)
+        with torch.no_grad():
+            if not self.max_q_backup:
+                next_a, next_log_prob, _ = self.policy_net(next_obs)
+                min_target_next_q = torch.min(self.target_q_net1(next_obs, next_a),
+                                              self.target_q_net2(next_obs, next_a)).squeeze(1)
+                if self.entropy_backup:
+                    # y = rews + self.gamma * (1. - done) * (min_target_next_q - self.alpha * next_log_prob)
+                    min_target_next_q = min_target_next_q - self.alpha * next_log_prob
+            else:
+                """when using max q backup"""
+                next_a_temp, _ = self.get_policy_actions(next_obs, n_action_samples=10)
+                target_qf1_values = self.get_actions_values(next_obs, next_a_temp, self.n_action_samples, self.q_net1).max(1)[0]
+                target_qf2_values = self.get_actions_values(next_obs, next_a_temp, self.n_action_samples, self.q_net2).max(1)[0]
+                min_target_next_q = torch.min(target_qf1_values, target_qf2_values).squeeze(1)
+
+            y = rews + self.gamma * (1. - done) * min_target_next_q
+
+        q_loss1 = F.mse_loss(q1, y)
+        q_loss2 = F.mse_loss(q2, y)
+
+        """
+        CQL Loss
+        Loss = SAC loss + min_q_weight * CQL loss
+        """
+        # Use importance sampling to compute log sum exp of Q(s, a), which is shown in paper's Appendix F.
+        random_sampled_actions = torch.FloatTensor(obs.shape[0] * self.n_action_samples, acts.shape[-1]).uniform_(-1, 1).to(self.device)
+        curr_sampled_actions, curr_log_probs = self.get_policy_actions(obs, self.n_action_samples)
+        # This is different from the paper because it samples not only from the current state, but also from the next state
+        next_sampled_actions, next_log_probs = self.get_policy_actions(next_obs, self.n_action_samples)
+        q1_rand = self.get_actions_values(obs, random_sampled_actions, self.n_action_samples, self.q_net1)
+        q2_rand = self.get_actions_values(obs, random_sampled_actions, self.n_action_samples, self.q_net2)
+        q1_curr = self.get_actions_values(obs, curr_sampled_actions, self.n_action_samples, self.q_net1)
+        q2_curr = self.get_actions_values(obs, curr_sampled_actions, self.n_action_samples, self.q_net2)
+        q1_next = self.get_actions_values(obs, next_sampled_actions, self.n_action_samples, self.q_net1)
+        q2_next = self.get_actions_values(obs, next_sampled_actions, self.n_action_samples, self.q_net2)
+
+        random_density = np.log(0.5 ** acts.shape[-1])
+
+        cat_q1 = torch.cat([q1_rand - random_density, q1_next - next_log_probs, q1_curr - curr_log_probs], dim=1)
+        cat_q2 = torch.cat([q2_rand - random_density, q2_next - next_log_probs, q2_curr - curr_log_probs], dim=1)
+
+        min_qf1_loss = torch.logsumexp(cat_q1, dim=1).mean()
+        min_qf2_loss = torch.logsumexp(cat_q2, dim=1).mean()
+
+        min_qf1_loss = self.min_q_weight * (min_qf1_loss - q1.mean())
+        min_qf2_loss = self.min_q_weight * (min_qf2_loss - q2.mean())
+
+        if self.with_lagrange:
+            alpha_prime = torch.clamp(self.log_alpha_prime.exp(), min=0.0, max=1e6)
+            min_qf1_loss = alpha_prime * (min_qf1_loss - self.lagrange_thresh)
+            min_qf2_loss = alpha_prime * (min_qf2_loss - self.lagrange_thresh)
+
+            alpha_prime_loss = -(min_qf1_loss + min_qf2_loss) * 0.5
+
+            self.alpha_prime_optimizer.zero_grad()
+            alpha_prime_loss.backward(retain_graph=True)  # the min_qf_loss will backward again latter, so retain graph.
+            self.alpha_prime_optimizer.step()
+        else:
+            alpha_prime_loss = torch.tensor(0)
+
+        q_loss1 = q_loss1 + min_qf1_loss
+        q_loss2 = q_loss2 + min_qf2_loss
+
+        """
+        Update networks
+        """
+        # Update policy network parameter
+        # policy network's update should be done before updating q network, or there will make some errors
+        self.policy_optimizer.zero_grad()
+        policy_loss.backward()
+        self.policy_optimizer.step()
+
+        # Update q network1 parameter
+        self.q_optimizer1.zero_grad()
+        q_loss1.backward(retain_graph=True)
+        self.q_optimizer1.step()
+
+        # Update q network2 parameter
+        self.q_optimizer2.zero_grad()
+        q_loss2.backward(retain_graph=True)
+        self.q_optimizer2.step()
+
+        if self.auto_alpha_tuning:
+            alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
+            self.alpha_optimizer.zero_grad()
+            alpha_loss.backward()
+            self.alpha_optimizer.step()
+
+            self.alpha = self.log_alpha.exp()
+        else:
+            alpha_loss = torch.tensor(0)
+
+        soft_target_update(self.q_net1, self.target_q_net1, tau=self.tau)
+        soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
+
+        self.train_step += 1
+
+        return q_loss1.cpu().item(), q_loss2.cpu().item(), policy_loss.cpu().item(), alpha_loss.cpu().item(), alpha_prime_loss.cpu().item()
+
+    def learn(self):
+        if self.resume:
+            self.load_agent_checkpoint()
+        else:
+            # delete tensorboard log file
+            log_tools.del_all_files_in_dir(self.result_dir)
+
+        while self.train_step < (int(self.max_train_step)):
+            # train
+            q_loss1, q_loss2, policy_loss, alpha_loss, alpha_prime_loss = self.train()
+
+            if self.train_step % self.eval_freq == 0:
+                print("<==================== evaluate in time step ", self.train_step, " ====================>")
+                avg_reward, avg_length = evaluate(agent=self, episode_num=5, render=False, offline_eval=True)
+                self.tensorboard_writer.log_learn_data({"episode_length": avg_length,
+                                                       "episode_reward": avg_reward}, self.train_step)
+
+            if self.train_step % self.log_interval == 0:
+                self.store_agent_checkpoint()
+                self.tensorboard_writer.log_train_data({"q_loss_1": q_loss1,
+                                                        "q_loss_2": q_loss2,
+                                                        "policy_loss": policy_loss,
+                                                        "alpha_loss": alpha_loss,
+                                                        "alpha_prime_loss": alpha_prime_loss}, self.train_step)
+
+    def store_agent_checkpoint(self):
+        checkpoint = {
+            "q_net1": self.q_net1.state_dict(),
+            "q_net2": self.q_net2.state_dict(),
+            "policy_net": self.policy_net.state_dict(),
+            "q_optimizer1": self.q_optimizer1.state_dict(),
+            "q_optimizer2": self.q_optimizer2.state_dict(),
+            "policy_optimizer": self.policy_optimizer.state_dict(),
+            "train_step": self.train_step,
+        }
+        if self.auto_alpha_tuning:
+            checkpoint["log_alpha"] = self.log_alpha
+            checkpoint["alpha_optimizer"] = self.alpha_optimizer.state_dict()
+        if self.with_lagrange:
+            checkpoint["log_alpha_prime"] = self.log_alpha_prime
+            checkpoint["alpha_prime_optimizer"] = self.alpha_prime_optimizer.state_dict()
+
+        torch.save(checkpoint, self.checkpoint_path)
+
+    def load_agent_checkpoint(self):
+        checkpoint = torch.load(self.checkpoint_path, map_location=self.device)  # can load gpu's data on cpu machine
+        self.q_net1.load_state_dict(checkpoint["q_net1"])
+        self.q_net2.load_state_dict(checkpoint["q_net2"])
+        self.policy_net.load_state_dict(checkpoint["policy_net"])
+        self.q_optimizer1.load_state_dict(checkpoint["q_optimizer1"])
+        self.q_optimizer2.load_state_dict(checkpoint["q_optimizer2"])
+        self.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
+        self.train_step = checkpoint["train_step"]
+
+        if self.auto_alpha_tuning:
+            self.log_alpha = checkpoint["log_alpha"]
+            self.alpha_optimizer.load_state_dict(checkpoint["alpha_optimizer"])
+
+        if self.with_lagrange:
+            self.log_alpha_prime = checkpoint["log_alpha_prime"]
+            self.alpha_prime_optimizer.load_state_dict(checkpoint["alpha_prime_optimizer"])
+
+        print("load checkpoint from " + self.checkpoint_path +
+              " and start train from " + str(self.train_step+1) + "step")
+
+
+
+
