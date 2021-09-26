@@ -9,6 +9,7 @@ Interact with the environment during training.
 | algorithm                                                    | discrete control | continuous control |
 | ------------------------------------------------------------ | ---------------- | ------------------ |
 | [Deep Q-Network (DQN)](https://storage.googleapis.com/deepmind-media/dqn/DQNNaturePaper.pdf) | ✔                | ⛔                  |
+| [Double DQN (DDQN)](https://arxiv.org/abs/1509.06461)        | ✔                | ⛔                  |
 | [Deep Deterministic Policy Gradients (DDPG)](https://arxiv.org/abs/1509.02971) | ⛔                | ✔                  |
 | [Soft Actor-Critic (SAC)](https://arxiv.org/abs/1812.05905)  | ⛔                | ✔                  |
 
