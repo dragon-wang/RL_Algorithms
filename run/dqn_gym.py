@@ -30,7 +30,7 @@ if __name__ == '__main__':
                         help='The number of steps taken to record the model and the tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
-    parser.add_argument('--train_id', type=str, default='dqn_test',
+    parser.add_argument('--train_id', type=str, default='dqn_gym_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Choose cpu or cuda')
@@ -53,8 +53,6 @@ if __name__ == '__main__':
     Q_net = MLPQsNet(obs_dim=obs_dim, act_dim=act_dim,
                      hidden_size=[256, 256], hidden_activation=nn.ReLU)
 
-    optimizer = torch.optim.Adam(Q_net.parameters(), lr=0.001)
-
     if args.eval:
         replay_buffer = None
     else:
@@ -64,7 +62,7 @@ if __name__ == '__main__':
     agent = DQN_Agent(env=env,
                       replay_buffer=replay_buffer,
                       Q_net=Q_net,
-                      optimizer=optimizer,
+                      qf_lr=0.001,
                       gamma=0.99,
                       initial_eps=0.1,
                       end_eps=0.001,

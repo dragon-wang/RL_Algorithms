@@ -54,9 +54,9 @@ class CQL_Agent:
         self.q_net2 = q_net2.to(self.device)
         self.target_q_net1 = copy.deepcopy(self.q_net1).to(self.device)
         self.target_q_net2 = copy.deepcopy(self.q_net2).to(self.device)
-        self.policy_optimizer = torch.optim.Adam(policy_net.parameters(), lr=policy_lr)
-        self.q_optimizer1 = torch.optim.Adam(q_net1.parameters(), lr=qf_lr)
-        self.q_optimizer2 = torch.optim.Adam(q_net2.parameters(), lr=qf_lr)
+        self.policy_optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=policy_lr)
+        self.q_optimizer1 = torch.optim.Adam(self.q_net1.parameters(), lr=qf_lr)
+        self.q_optimizer2 = torch.optim.Adam(self.q_net2.parameters(), lr=qf_lr)
 
         self.gamma = gamma
         self.tau = tau

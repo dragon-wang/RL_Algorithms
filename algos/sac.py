@@ -20,9 +20,8 @@ class SAC_Agent:
                  policy_net: torch.nn.Module,  # actor
                  q_net1: torch.nn.Module,  # critic
                  q_net2: torch.nn.Module,
-                 policy_optimizer: torch.optim.Optimizer,
-                 q_optimizer1: torch.optim.Optimizer,
-                 q_optimizer2: torch.optim.Optimizer,
+                 policy_lr=4e-3,
+                 qf_lr=4e-3,
                  gamma=0.99,
                  tau=0.05,
                  alpha=0.5,
@@ -46,9 +45,9 @@ class SAC_Agent:
         self.q_net2 = q_net2.to(self.device)
         self.target_q_net1 = copy.deepcopy(self.q_net1).to(self.device)
         self.target_q_net2 = copy.deepcopy(self.q_net2).to(self.device)
-        self.policy_optimizer = policy_optimizer
-        self.q_optimizer1 = q_optimizer1
-        self.q_optimizer2 = q_optimizer2
+        self.policy_optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=policy_lr)
+        self.q_optimizer1 = torch.optim.Adam(self.q_net1.parameters(), lr=qf_lr)
+        self.q_optimizer2 = torch.optim.Adam(self.q_net2.parameters(), lr=qf_lr)
 
         self.gamma = gamma
         self.tau = tau
@@ -58,7 +57,7 @@ class SAC_Agent:
         if self.auto_alpha_tuning:
             self.target_entropy = -np.prod(self.env.action_space.shape).item()
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=3e-3)
+            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=policy_lr)
             self.alpha = torch.exp(self.log_alpha)
 
         self.explore_step = explore_step

@@ -32,7 +32,7 @@ if __name__ == '__main__':
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
-    parser.add_argument('--train_id', type=str, default='sac_test',
+    parser.add_argument('--train_id', type=str, default='sac_gym_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
@@ -65,10 +65,6 @@ if __name__ == '__main__':
     q_net2 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256],
                        hidden_activation=nn.ReLU)
 
-    policy_optimizer = torch.optim.Adam(policy_net.parameters(), lr=4e-3)
-    q_optimizer1 = torch.optim.Adam(q_net1.parameters(), lr=4e-3)
-    q_optimizer2 = torch.optim.Adam(q_net2.parameters(), lr=4e-3)
-
     # create buffer
     if args.eval:
         replay_buffer = None
@@ -83,9 +79,8 @@ if __name__ == '__main__':
                       policy_net=policy_net,
                       q_net1=q_net1,  # critic
                       q_net2=q_net2,
-                      policy_optimizer=policy_optimizer,
-                      q_optimizer1=q_optimizer1,
-                      q_optimizer2=q_optimizer2,
+                      policy_lr=4e-3,
+                      qf_lr=4e-3,
                       gamma=0.99,
                       tau=0.05,
                       alpha=args.alpha,

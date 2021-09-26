@@ -17,7 +17,7 @@ class DQN_Agent:
                  env: Env,
                  replay_buffer: ReplayBuffer,
                  Q_net: torch.nn.Module,
-                 optimizer: torch.optim.Optimizer,
+                 qf_lr=0.001,
                  gamma=0.99,
                  initial_eps=0.1,
                  end_eps=0.001,
@@ -44,7 +44,7 @@ class DQN_Agent:
 
         self.Q_net = Q_net.to(self.device)
         self.target_Q_net = copy.deepcopy(self.Q_net).to(self.device)
-        self.optimizer = optimizer
+        self.optimizer = torch.optim.Adam(self.Q_net.parameters(), lr=qf_lr)
 
         # Decay for epsilon
         self.initial_eps = initial_eps

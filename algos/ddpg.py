@@ -19,8 +19,8 @@ class DDPG_Agent:
                  replay_buffer: ReplayBuffer,
                  actor_net: torch.nn.Module,
                  critic_net: torch.nn.Module,
-                 actor_optimizer: torch.optim.Optimizer,
-                 critic_optimizer: torch.optim.Optimizer,
+                 actor_lr=1e-4,
+                 critic_lr=1e-3,
                  gamma=0.99,
                  tau=0.005,  # used to update target network, w' = tau*w + (1-tau)*w'
                  explore_step=128,
@@ -44,8 +44,8 @@ class DDPG_Agent:
         self.target_actor_net = copy.deepcopy(self.actor_net).to(self.device)
         self.critic_net = critic_net.to(self.device)
         self.target_critic_net = copy.deepcopy(self.critic_net).to(self.device)
-        self.actor_optimizer = actor_optimizer
-        self.critic_optimizer = critic_optimizer
+        self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=actor_lr)
+        self.critic_optimizer = torch.optim.Adam(self.critic_net.parameters(), lr=critic_lr)
 
         self.gamma = gamma
         self.tau = tau

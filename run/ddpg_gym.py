@@ -26,7 +26,7 @@ if __name__ == '__main__':
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
-    parser.add_argument('--train_id', type=str, default='ddpg_test',
+    parser.add_argument('--train_id', type=str, default='ddpg_gym_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
@@ -57,10 +57,6 @@ if __name__ == '__main__':
     critic_net = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim,
                            hidden_size=[400, 300], hidden_activation=nn.ReLU)
 
-    # create optimizer
-    actor_optimizer = torch.optim.Adam(actor_net.parameters(), lr=1e-4)
-    critic_optimizer = torch.optim.Adam(critic_net.parameters(), lr=1e-3)
-
     # create buffer
     replay_buffer = ReplayBuffer(obs_dim=obs_dim,
                                  act_dim=act_dim,
@@ -70,7 +66,7 @@ if __name__ == '__main__':
     # create agent
     agent = DDPG_Agent(env=env, replay_buffer=replay_buffer,
                        actor_net=actor_net, critic_net=critic_net,
-                       actor_optimizer=actor_optimizer, critic_optimizer=critic_optimizer,
+                       actor_lr=1e-4, critic_lr=1e-3,
                        gamma=0.99,
                        tau=0.005,
                        gaussian_noise_sigma=0.1,
