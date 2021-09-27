@@ -19,5 +19,5 @@ Use the existing data set  for training, and there is no interaction with the en
 
 | algorithm                                                    | discrete control | continuous control |
 | ------------------------------------------------------------ | ---------------- | ------------------ |
-| [Conservative Q-Learning (CQL)](https://arxiv.org/abs/2006.04779) | ⛔                | ✔                  |
+| [Conservative Q-Learning (CQL)](https://arxiv.org/abs/2006.04779) | ✔                | ✔                  |
 
