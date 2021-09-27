@@ -1,3 +1,4 @@
+import gym
 import torch
 import numpy as np
 from typing import Sequence, Type, Optional, List, Union
@@ -49,13 +50,13 @@ class OfflineBuffer:
     Used in offline setting
     """
     def __init__(self, data: dict, batch_size: int):
-        self.obs = np.array(data["obs"], dtype=np.float32)
-        self.acts = np.array(data["acts"], dtype=np.float32)
-        self.rews = np.array(data["rews"], dtype=np.float32)
-        self.next_obs = np.array(data["next_obs"], dtype=np.float32)
-        self.done = np.array(data["done"], dtype=np.float32)
+        self.obs = data["obs"]
+        self.acts = data["acts"]
+        self.rews = data["rews"]
+        self.next_obs = data["next_obs"]
+        self.done = data["done"]
 
-        self.data_num = self.obs.shape[0]
+        self.data_num = self.acts.shape[0]
         self.batch_size = batch_size
 
     def sample(self) -> dict:
@@ -64,4 +65,28 @@ class OfflineBuffer:
                     acts=torch.FloatTensor(self.acts[ind]),
                     rews=torch.FloatTensor(self.rews[ind]),  # 1D
                     next_obs=torch.FloatTensor(self.next_obs[ind]),
+                    done=torch.FloatTensor(self.done[ind]))  # 1D
+
+
+class OfflineBufferAtari:
+    """
+    Used in offline setting
+    """
+    def __init__(self, data: dict, batch_size: int):
+        self.obs = data["obs"]  # list
+        self.acts = data["acts"]  # ndarray
+        self.rews = data["rews"]  # ndarray
+        self.done = data["done"]  # ndarray
+
+        self.data_num = self.acts.shape[0]
+        self.batch_size = batch_size
+
+    def sample(self) -> dict:
+        ind = np.random.choice(self.data_num-1, size=self.batch_size, replace=False)
+        obs = [self.obs[i] for i in ind]
+        next_obs = [self.obs[i+1] for i in ind]
+        return dict(obs=torch.FloatTensor(obs),
+                    acts=torch.FloatTensor(self.acts[ind]).reshape(-1, 1),
+                    rews=torch.FloatTensor(self.rews[ind]),  # 1D
+                    next_obs=torch.FloatTensor(next_obs),
                     done=torch.FloatTensor(self.done[ind]))  # 1D
