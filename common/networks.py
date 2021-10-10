@@ -79,7 +79,7 @@ LOG_STD_MAX = 2
 
 class MLPSquashedReparamGaussianPolicy(nn.Module):
     """
-    SAC Policy net
+    Policy net.Used in SAC, CQL.
     Input s, output reparameterize, squashed action and log probability of this action
     """
     def __init__(self, obs_dim, act_dim, act_bound, hidden_size, hidden_activation=nn.ReLU, edge=3e-3):
