@@ -67,7 +67,7 @@ if __name__ == '__main__':
     else:
         # create buffer
         data = data_tools.get_d4rl_dataset(env)
-        data_buffer = OfflineBuffer(data=data, batch_size=100)
+        data_buffer = OfflineBuffer(data=data, batch_size=args.batch_size)
 
     agent = BCQ_Agent(env=env,
                       data_buffer=data_buffer,
