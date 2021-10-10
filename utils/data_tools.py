@@ -1,5 +1,12 @@
-import d4rl
-import d4rl_atari
+try:
+    import d4rl
+except ImportError:
+    print('No module named "d4rl" , and you can install in https://github.com/rail-berkeley/d4rl')
+
+try:
+    import d4rl_atari
+except ImportError:
+    print('No module named "d4rl_atari" , and you can install in https://github.com/takuseno/d4rl-atari')
 
 
 def get_d4rl_dataset(env) -> dict:
