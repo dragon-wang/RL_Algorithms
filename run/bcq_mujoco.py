@@ -62,8 +62,12 @@ if __name__ == '__main__':
     cvae_net = BCQ_CVAE(obs_dim=obs_dim, act_dim=act_dim,
                         latent_dim=2 * act_dim, act_bound=act_bound)
 
-    data = data_tools.get_d4rl_dataset(env)
-    data_buffer = OfflineBuffer(data=data, batch_size=100)
+    if args.eval:
+        data_buffer = None
+    else:
+        # create buffer
+        data = data_tools.get_d4rl_dataset(env)
+        data_buffer = OfflineBuffer(data=data, batch_size=100)
 
     agent = BCQ_Agent(env=env,
                       data_buffer=data_buffer,
@@ -88,4 +92,7 @@ if __name__ == '__main__':
 
     )
 
-    agent.learn()
+    if args.eval:
+        train_tools.evaluate(agent, 10, render=True)
+    else:
+        agent.learn()
