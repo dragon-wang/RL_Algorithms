@@ -38,7 +38,7 @@ class CQL_Agent:
                  max_train_step=2000000,
                  log_interval=1000,
                  eval_freq=5000,
-                 train_id="sac_Pendulum_test",
+                 train_id="cql_hopper-medium-v2_test",
                  resume=False,  # if True, train from last checkpoint
                  device='cpu',
                  ):
