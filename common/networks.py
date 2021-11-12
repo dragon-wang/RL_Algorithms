@@ -134,9 +134,9 @@ class ConvAtariQsNet(nn.Module):
         return q
 
 
-class BCQ_CVAE(nn.Module):
+class CVAE(nn.Module):
     """
-    Conditional Variational Auto-Encoder(CVAE) used in Batch-Constrained deep Q-learning(BCQ)
+    Conditional Variational Auto-Encoder(CVAE) used in BCQ and PLAS
     ref: https://github.com/sfujim/BCQ/blob/4876f7e5afa9eb2981feec5daf67202514477518/continuous_BCQ/BCQ.py#L57
     """
 
@@ -151,7 +151,7 @@ class BCQ_CVAE(nn.Module):
         :param latent_dim: The dimension of latent in CVAE
         :param act_bound: The maximum value of the action
         """
-        super(BCQ_CVAE, self).__init__()
+        super(CVAE, self).__init__()
 
         self.obs_dim = obs_dim
         self.act_dim = act_dim
@@ -201,9 +201,11 @@ class BCQ_CVAE(nn.Module):
         return recon_action, mu, log_std
 
     def loss_function(self, recon, action, mu, log_std) -> torch.Tensor:
-        recon_loss = F.mse_loss(recon, action, reduction="sum")  # use "mean" may have a bad effect on gradients
-        kl_loss = -0.5 * (1 + 2 * log_std - mu.pow(2) - torch.exp(2 * log_std))
-        kl_loss = torch.sum(kl_loss)
+        # recon_loss = F.mse_loss(recon, action, reduction="sum")  # use "mean" may have a bad effect on gradients
+        # kl_loss = -0.5 * (1 + 2 * log_std - mu.pow(2) - torch.exp(2 * log_std))
+        # kl_loss = torch.sum(kl_loss)
+        recon_loss = F.mse_loss(recon, action)
+        kl_loss = -0.5 * (1 + 2 * log_std - mu.pow(2) - torch.exp(2 * log_std)).mean()
         loss = recon_loss + 0.5 * kl_loss
         return loss
 
@@ -227,3 +229,30 @@ class BCQ_Perturbation(nn.Module):
         a = torch.tanh(self.mlp(x))
         a = self.phi * self.act_bound * a
         return (a + action).clamp(-self.act_bound, self.act_bound)
+
+
+class PLAS_PerturbationActor(nn.Module):
+    def __init__(self, obs_dim, act_dim, latent_act_dim, act_bound, latent_act_bound=2,
+                 actor_hidden_size=[400, 300], ptb_hidden_size=[400, 300], hidden_activation=nn.ReLU,
+                 phi=0.05  # the Phi in perturbation model:
+                 ):
+        super(PLAS_PerturbationActor, self).__init__()
+        self.actor_mlp = MLP(input_dim=obs_dim, output_dim=latent_act_dim,
+                             hidden_size=actor_hidden_size, hidden_activation=hidden_activation)
+        self.ptb_mlp = MLP(input_dim=obs_dim + act_dim, output_dim=act_dim,
+                           hidden_size=ptb_hidden_size, hidden_activation=hidden_activation)
+        self.latent_act_bound = latent_act_bound
+        self.act_bound = act_bound
+        self.phi = phi
+
+    def forward(self, obs, decoder):
+        a = torch.tanh(self.actor_mlp(obs))
+        latent_action = self.latent_act_bound * a
+
+        decode_action = decoder(obs, z=latent_action)
+
+        x = torch.cat([obs, decode_action], dim=1)
+        a = self.phi * torch.tanh(self.ptb_mlp(x))  # different from BCQ
+        ptb_action = (a + decode_action).clamp(-self.act_bound, self.act_bound)
+
+        return ptb_action
