@@ -125,6 +125,7 @@ class DQN_Agent:
 
         episode_reward = 0
         episode_length = 0
+        q_loss = 0
 
         while self.train_step < self.max_train_step:
             action = self.choose_action(np.array(obs))
