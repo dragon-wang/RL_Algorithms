@@ -90,18 +90,18 @@ class DQN_Agent:
 
         # Compute target Q value
         with torch.no_grad():
-            target_Q = rews + (1. - done) * self.gamma * self.target_Q_net(next_obs).max(dim=1)[0]
+            target_q = rews + (1. - done) * self.gamma * self.target_Q_net(next_obs).max(dim=1)[0]
 
         # Compute current Q value
-        current_Q = self.Q_net(obs).gather(1, acts.long()).squeeze(1)
+        current_q = self.Q_net(obs).gather(1, acts.long()).squeeze(1)
 
         # Compute Q loss
-        Q_loss = 0.5 * (target_Q - current_Q).pow(2).mean()
+        q_loss = 0.5 * (target_q - current_q).pow(2).mean()
         # Q_loss = F.mse_loss(current_Q, target_Q)
 
         # Optimize the Q network
         self.optimizer.zero_grad()
-        Q_loss.backward()
+        q_loss.backward()
         self.optimizer.step()
 
         self.train_step += 1
@@ -110,7 +110,7 @@ class DQN_Agent:
         if self.train_step % self.target_update_freq == 0:
             hard_target_update(self.Q_net, self.target_Q_net)
 
-        return Q_loss.cpu().item()
+        return q_loss.cpu().item()
 
     def learn(self):
         if self.resume:
@@ -125,7 +125,6 @@ class DQN_Agent:
 
         episode_reward = 0
         episode_length = 0
-        Q_loss = 0
 
         while self.train_step < self.max_train_step:
             action = self.choose_action(np.array(obs))
@@ -137,7 +136,7 @@ class DQN_Agent:
             episode_length += 1
 
             if (self.train_step+1) % self.train_interval == 0:
-                Q_loss = self.train()
+                q_loss = self.train()
 
             if done:
                 self.episode_num += 1
@@ -154,7 +153,7 @@ class DQN_Agent:
 
             if self.train_step % self.log_interval == 0:
                 self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"Q_loss": Q_loss}, self.train_step)
+                self.tensorboard_writer.log_train_data({"Q_loss": q_loss}, self.train_step)
 
     def store_agent_checkpoint(self):
         checkpoint = {
