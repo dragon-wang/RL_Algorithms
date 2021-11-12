@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from common.buffers import OfflineBuffer
-from utils.train_tools import soft_target_update, evaluate, hard_target_update
+from utils.train_tools import soft_target_update, evaluate
 from utils import log_tools
 
 
@@ -107,20 +107,20 @@ class BCQ_Agent:
             # perturb the generated action
             perturbed_action = self.target_perturbation_net(next_obs, generated_action)
             # compute target Q value of perturbed action
-            target_Q1 = self.target_critic_net1(next_obs, perturbed_action)
-            target_Q2 = self.target_critic_net2(next_obs, perturbed_action)
+            target_q1 = self.target_critic_net1(next_obs, perturbed_action)
+            target_q2 = self.target_critic_net2(next_obs, perturbed_action)
             # soft clipped double q-learning
-            target_Q = self.lmbda * torch.min(target_Q1, target_Q2) + (1. - self.lmbda) * torch.max(target_Q1, target_Q2)
+            target_q = self.lmbda * torch.min(target_q1, target_q2) + (1. - self.lmbda) * torch.max(target_q1, target_q2)
             # take max over each action sampled from the generation and perturbation model
-            target_Q = target_Q.reshape(obs.shape[0], 10, 1).max(1)[0].squeeze(1)
-            target_Q = rews + self.gamma * (1. - done) * target_Q
+            target_q = target_q.reshape(obs.shape[0], 10, 1).max(1)[0].squeeze(1)
+            target_q = rews + self.gamma * (1. - done) * target_q
 
         # compute current Q
-        current_Q1 = self.critic_net1(obs, acts).squeeze(1)
-        current_Q2 = self.critic_net2(obs, acts).squeeze(1)
+        current_q1 = self.critic_net1(obs, acts).squeeze(1)
+        current_q2 = self.critic_net2(obs, acts).squeeze(1)
         # compute critic loss
-        critic_loss1 = F.mse_loss(current_Q1, target_Q)
-        critic_loss2 = F.mse_loss(current_Q2, target_Q)
+        critic_loss1 = F.mse_loss(current_q1, target_q)
+        critic_loss2 = F.mse_loss(current_q2, target_q)
 
         self.critic_optimizer1.zero_grad()
         critic_loss1.backward()
@@ -156,7 +156,6 @@ class BCQ_Agent:
         """Train BCQ without interacting with the environment (offline)"""
         if self.resume:
             self.load_agent_checkpoint()
-            pass
         else:
             # delete tensorboard log file
             log_tools.del_all_files_in_dir(self.result_dir)

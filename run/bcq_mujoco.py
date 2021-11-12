@@ -9,7 +9,7 @@ import torch.nn as nn
 import numpy as np
 from algos.offline.bcq import BCQ_Agent
 from common.buffers import OfflineBuffer
-from common.networks import MLPQsaNet, BCQ_CVAE, BCQ_Perturbation
+from common.networks import MLPQsaNet, CVAE, BCQ_Perturbation
 from utils import train_tools, data_tools
 
 
@@ -59,8 +59,8 @@ if __name__ == '__main__':
                                         hidden_size=[400, 300], hidden_activation=nn.ReLU,
                                         phi=0.05)
 
-    cvae_net = BCQ_CVAE(obs_dim=obs_dim, act_dim=act_dim,
-                        latent_dim=2 * act_dim, act_bound=act_bound)
+    cvae_net = CVAE(obs_dim=obs_dim, act_dim=act_dim,
+                    latent_dim=2 * act_dim, act_bound=act_bound)
 
     if args.eval:
         data_buffer = None
@@ -88,9 +88,8 @@ if __name__ == '__main__':
                       eval_freq=args.eval_freq,
                       train_id=args.train_id,
                       resume=args.resume,  # if True, train from last checkpoint
-                      device=args.device,
-
-    )
+                      device=args.device
+                      )
 
     if args.eval:
         train_tools.evaluate(agent, 10, render=True)
