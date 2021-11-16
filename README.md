@@ -21,4 +21,5 @@ Use the existing data set  for training, and there is no interaction with the en
 | ------------------------------------------------------------ | ---------------- | ------------------ |
 | [Conservative Q-Learning (CQL)](https://arxiv.org/abs/2006.04779) | ✔                | ✔                  |
 | [Batch-Constrained deep Q-learning (BCQ)](https://arxiv.org/abs/1812.02900) |                  | ✔                  |
+| [Policy in the Latent Action Space (PLAS)](https://arxiv.org/abs/2011.07213) | ⛔                | ✔                  |
 
