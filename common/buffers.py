@@ -37,7 +37,7 @@ class ReplayBuffer:
         self.crt_size = min(self.crt_size + 1, self.max_size)
 
     def sample(self):
-        ind = np.random.choice(self.crt_size, size=self.batch_size, replace=False)
+        ind = np.random.choice(self.crt_size, size=self.batch_size, replace=True)  # replace=False will make sample be slow
         return dict(obs=torch.FloatTensor(self.obs[ind]),
                     acts=torch.FloatTensor(self.acts[ind]),
                     rews=torch.FloatTensor(self.rews[ind]),  # 1D
@@ -60,7 +60,7 @@ class OfflineBuffer:
         self.batch_size = batch_size
 
     def sample(self) -> dict:
-        ind = np.random.choice(self.data_num, size=self.batch_size, replace=False)
+        ind = np.random.choice(self.data_num, size=self.batch_size, replace=True)  # replace=False will make sample be slow
         return dict(obs=torch.FloatTensor(self.obs[ind]),
                     acts=torch.FloatTensor(self.acts[ind]),
                     rews=torch.FloatTensor(self.rews[ind]),  # 1D
@@ -82,7 +82,7 @@ class OfflineBufferAtari:
         self.batch_size = batch_size
 
     def sample(self) -> dict:
-        ind = np.random.choice(self.data_num-1, size=self.batch_size, replace=False)
+        ind = np.random.choice(self.data_num-1, size=self.batch_size, replace=True)  # replace=False will make sample be slow
         obs = [self.obs[i] for i in ind]
         next_obs = [self.obs[i+1] for i in ind]
         return dict(obs=torch.FloatTensor(obs),
