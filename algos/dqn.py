@@ -121,7 +121,6 @@ class DQN_Agent:
         explore_before_train(self.env, self.replay_buffer, self.explore_step)
         print("==============================start train===================================")
         obs = self.env.reset()
-        done = False
 
         episode_reward = 0
         episode_length = 0
@@ -142,7 +141,6 @@ class DQN_Agent:
             if done:
                 self.episode_num += 1
                 obs = self.env.reset()
-                done = False
 
                 print(f"Total T: {self.train_step} Episode Num: {self.episode_num} "
                       f"Episode Length: {episode_length} Episode Reward: {episode_reward:.3f}")
