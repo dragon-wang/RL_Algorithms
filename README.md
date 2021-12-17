@@ -12,6 +12,7 @@ Interact with the environment during training.
 | [Double DQN (DDQN)](https://arxiv.org/abs/1509.06461)        | ✔                | ⛔                  |
 | [Deep Deterministic Policy Gradients (DDPG)](https://arxiv.org/abs/1509.02971) | ⛔                | ✔                  |
 | [Soft Actor-Critic (SAC)](https://arxiv.org/abs/1812.05905)  | ⛔                | ✔                  |
+| [Delayed Deep Deterministic policy gradient(TD3)](https://arxiv.org/abs/1802.09477) | ⛔                | ✔                  |
 
 ### Offline RL
 
