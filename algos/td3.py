@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from common.buffers import ReplayBuffer
 from gym import Env
-from utils.train_tools import soft_target_update, explore_before_train
+from utils.train_tools import soft_target_update, explore_before_train, evaluate
 from utils import log_tools
 
 
@@ -25,6 +25,7 @@ class TD3_Agent:
                  gamma=0.99,
                  tau=0.005,  # used to update target network, w' = tau*w + (1-tau)*w'
                  explore_step=10000,
+                 eval_freq=1000,
                  max_train_step=1000000,
                  act_noise=0.1,  # Std of Gaussian exploration noise
                  policy_noise=0.2,  # Noise added to target policy during critic update
@@ -63,6 +64,7 @@ class TD3_Agent:
         self.policy_delay = policy_delay
         self.actor_loss = 0
         self.explore_step = explore_step
+        self.eval_freq = eval_freq
         self.max_train_step = max_train_step
 
         self.train_step = 0
@@ -188,6 +190,11 @@ class TD3_Agent:
                 self.tensorboard_writer.log_train_data({"critic_loss1": critic_loss1,
                                                         "critic_loss2": critic_loss2}, self.train_step)
 
+            if self.train_step % self.eval_freq == 0:
+                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
+                                                       "eval_episode_reward": avg_reward}, self.train_step)
+
     def store_agent_checkpoint(self):
         checkpoint = {
             "actor_net": self.actor_net.state_dict(),
@@ -214,5 +221,5 @@ class TD3_Agent:
         self.critic_optimizer2.load_state_dict(checkpoint["critic_optimizer2"])
         self.train_step = checkpoint["train_step"]
         self.episode_num = checkpoint["episode_num"]
-        print("load checkpoint from " + self.checkpoint_path +
-              " and start train from " + str(self.train_step+1) + "step")
+        print("load checkpoint from \"" + self.checkpoint_path +
+              "\" at " + str(self.train_step) + " time step")

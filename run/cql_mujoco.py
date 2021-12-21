@@ -43,10 +43,10 @@ if __name__ == '__main__':
                         help='whether load the last saved model to train')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Choose cpu or cuda')
-    parser.add_argument('--eval', action='store_true', default=False,
-                        help='evaluate the agent')
+    parser.add_argument('--show', action='store_true', default=False,
+                        help='show the trained model visually')
     parser.add_argument('--eval_freq', type=int, default=5000,
-                        help='the frequency of evaluating the agent in offline')
+                        help='how often (time steps) we evaluate')
     parser.add_argument('--seed', type=int, default=10,
                         help='the random seed')
 
@@ -72,10 +72,10 @@ if __name__ == '__main__':
     q_net2 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256],
                        hidden_activation=nn.ReLU)
 
-    if args.eval:
+    # create buffer
+    if args.show:
         data_buffer = None
     else:
-        # create buffer
         data = data_tools.get_d4rl_dataset(env)
         data_buffer = OfflineBuffer(data=data, batch_size=args.batch_size)
 
@@ -106,7 +106,7 @@ if __name__ == '__main__':
                       resume=args.resume,  # if True, train from last checkpoint
                       device=args.device,
                       )
-    if args.eval:
-        train_tools.evaluate(agent, 10, render=True)
+    if args.show:
+        train_tools.evaluate(agent, 10, show=True)
     else:
         agent.learn()

@@ -3,6 +3,7 @@ from gym import Env
 from tqdm import tqdm
 from common.buffers import ReplayBuffer
 import numpy as np
+import copy
 
 
 def hard_target_update(main, target):
@@ -31,19 +32,20 @@ def explore_before_train(env: Env, buffer, explore_step):
             obs = next_obs
 
 
-def evaluate(agent, episode_num, render=True, offline_eval=False):
-    if not offline_eval:
+def evaluate(agent, episode_num, show=False):
+    if show:
         agent.load_agent_checkpoint()
-    eval_env = agent.env
+    eval_env = copy.deepcopy(agent.env)
+    eval_env.seed()  # reset environment's seed for evaluate
     total_reward = 0
     total_length = 0
-    print("----------------evaluating-------------------")
+    print("---------------------------------- evaluating at time step {} ----------------------------------".format(agent.train_step))
     for i in range(episode_num):
         episode_reward = 0
         episode_length = 0
         obs, done = eval_env.reset(), False
         while not done:
-            if render:
+            if show:
                 eval_env.render()
             action = agent.choose_action(obs, eval=True)
             action = action[0] if isinstance(action, tuple) else action
@@ -53,13 +55,14 @@ def evaluate(agent, episode_num, render=True, offline_eval=False):
             if done:
                 total_reward += episode_reward
                 total_length += episode_length
-                print("episode:{} \t step length: {} \t reward: {}".format(i + 1, episode_length, episode_reward))
+                if show:
+                    print("episode:{} \t step length: {} \t reward: {:.2f}".format(i + 1, episode_length, episode_reward))
 
     avg_reward = total_reward / episode_num
     avg_length = total_length / episode_num
 
-    print("=====>average step length: {}\t average reward: {}".format(avg_length, avg_reward))
-    print("---------------------------------------------")
+    print("=====> evaluate {} episode <===> average step length: {:.2f} <===> average reward: {:.2f} <=====".format(episode_num, avg_length, avg_reward))
+    print("---------------------------------------------------------------------------------------------------")
 
     return avg_reward, avg_length
 

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from common.buffers import ReplayBuffer
 from gym import Env
-from utils.train_tools import hard_target_update, explore_before_train
+from utils.train_tools import hard_target_update, explore_before_train, evaluate
 from utils import log_tools
 
 
@@ -26,6 +26,7 @@ class DQN_Agent:
                  target_update_freq =10,
                  train_interval: int = 1,
                  explore_step=500,
+                 eval_freq=1000,
                  max_train_step=10000,
                  train_id="dqn_CartPole_test",
                  log_interval=1000,
@@ -37,6 +38,7 @@ class DQN_Agent:
 
         self.explore_step = explore_step
         self.max_train_step = max_train_step
+        self.eval_freq = eval_freq
         self.train_interval = train_interval
         self.target_update_freq = target_update_freq
 
@@ -154,6 +156,11 @@ class DQN_Agent:
                 self.store_agent_checkpoint()
                 self.tensorboard_writer.log_train_data({"Q_loss": q_loss}, self.train_step)
 
+            if self.train_step % self.eval_freq == 0:
+                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
+                                                       "eval_episode_reward": avg_reward}, self.train_step)
+
     def store_agent_checkpoint(self):
         checkpoint = {
             "net": self.Q_net.state_dict(),
@@ -171,5 +178,5 @@ class DQN_Agent:
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         self.train_step = checkpoint["train_step"]
         self.episode_num = checkpoint["episode_num"]
-        print("load checkpoint from " + self.checkpoint_path +
-              " and start train from " + str(self.train_step+1) + "step")
+        print("load checkpoint from \"" + self.checkpoint_path +
+              "\" at " + str(self.train_step) + " time step")

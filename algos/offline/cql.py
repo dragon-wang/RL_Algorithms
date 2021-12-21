@@ -259,10 +259,9 @@ class CQL_Agent:
             q_loss1, q_loss2, policy_loss, alpha_loss, alpha_prime_loss = self.train()
 
             if self.train_step % self.eval_freq == 0:
-                print("<==================== evaluate in time step ", self.train_step, " ====================>")
-                avg_reward, avg_length = evaluate(agent=self, episode_num=5, render=False, offline_eval=True)
-                self.tensorboard_writer.log_learn_data({"episode_length": avg_length,
-                                                       "episode_reward": avg_reward}, self.train_step)
+                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
+                                                       "eval_episode_reward": avg_reward}, self.train_step)
 
             if self.train_step % self.log_interval == 0:
                 self.store_agent_checkpoint()
@@ -309,8 +308,8 @@ class CQL_Agent:
             self.log_alpha_prime = checkpoint["log_alpha_prime"]
             self.alpha_prime_optimizer.load_state_dict(checkpoint["alpha_prime_optimizer"])
 
-        print("load checkpoint from " + self.checkpoint_path +
-              " and start train from " + str(self.train_step+1) + "step")
+        print("load checkpoint from \"" + self.checkpoint_path +
+              "\" at " + str(self.train_step) + " time step")
 
 
 class DiscreteCQL_Agent:
@@ -446,10 +445,9 @@ class DiscreteCQL_Agent:
             # train
             q_loss = self.train()
             if self.train_step % self.eval_freq == 0:
-                print("<==================== evaluate in time step ", self.train_step, " ====================>")
-                avg_reward, avg_length = evaluate(agent=self, episode_num=5, render=False, offline_eval=True)
-                self.tensorboard_writer.log_learn_data({"episode_length": avg_length,
-                                                        "episode_reward": avg_reward}, self.train_step)
+                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
+                                                       "eval_episode_reward": avg_reward}, self.train_step)
 
             if self.train_step % self.log_interval == 0:
                 self.store_agent_checkpoint()
@@ -470,5 +468,6 @@ class DiscreteCQL_Agent:
         self.target_Q_net = copy.deepcopy(self.Q_net)
         self.optimizer.load_state_dict(checkpoint["optimizer"])
         self.train_step = checkpoint["train_step"]
-        print("load checkpoint from " + self.checkpoint_path +
-              " and start train from " + str(self.train_step + 1) + "step")
+
+        print("load checkpoint from \"" + self.checkpoint_path +
+              "\" at " + str(self.train_step) + " time step")

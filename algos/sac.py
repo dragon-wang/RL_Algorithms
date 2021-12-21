@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from common.buffers import ReplayBuffer
 from gym import Env
-from utils.train_tools import soft_target_update, explore_before_train
+from utils.train_tools import soft_target_update, explore_before_train, evaluate
 from utils import log_tools
 
 
@@ -27,6 +27,7 @@ class SAC_Agent:
                  alpha=0.5,
                  auto_alpha_tuning=False,
                  explore_step=2000,
+                 eval_freq=1000,
                  max_train_step=50000,
                  train_id="sac_Pendulum_test",
                  log_interval=1000,
@@ -61,6 +62,7 @@ class SAC_Agent:
             self.alpha = torch.exp(self.log_alpha)
 
         self.explore_step = explore_step
+        self.eval_freq = eval_freq
         self.max_train_step = max_train_step
 
         self.train_step = 0
@@ -186,6 +188,11 @@ class SAC_Agent:
                                                         "policy_loss": policy_loss,
                                                         "alpha_loss": alpha_loss}, self.train_step)
 
+            if self.train_step % self.eval_freq == 0:
+                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
+                                                       "eval_episode_reward": avg_reward}, self.train_step)
+
     def store_agent_checkpoint(self):
         checkpoint = {
             "q_net1": self.q_net1.state_dict(),
@@ -215,8 +222,8 @@ class SAC_Agent:
         if self.auto_alpha_tuning:
             self.log_alpha = checkpoint["log_alpha"]
             self.alpha_optimizer.load_state_dict(checkpoint["alpha_optimizer"])
-        print("load checkpoint from " + self.checkpoint_path +
-              " and start train from " + str(self.train_step+1) + "step")
+        print("load checkpoint from \"" + self.checkpoint_path +
+              "\" at " + str(self.train_step) + " time step")
 
 
 

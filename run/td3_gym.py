@@ -22,6 +22,8 @@ if __name__ == '__main__':
                         help='the size of batch that sampled from buffer')
     parser.add_argument('--explore_step', type=int, default=2000,
                         help='the steps of exploration before train')
+    parser.add_argument('--eval_freq', type=int, default=1000,
+                        help='how often (time steps) we evaluate')
     parser.add_argument('--max_train_step', type=int, default=100000,
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
@@ -32,8 +34,8 @@ if __name__ == '__main__':
                         help='whether load the last saved model to train')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Choose cpu or cuda')
-    parser.add_argument('--eval', action='store_true', default=False,
-                        help='evaluate the agent')
+    parser.add_argument('--show', action='store_true', default=False,
+                        help='show the trained model visually')
     parser.add_argument('--seed', type=int, default=10,
                         help='the random seed')
 
@@ -60,10 +62,13 @@ if __name__ == '__main__':
                             hidden_size=[400, 300], hidden_activation=nn.ReLU)
 
     # create buffer
-    replay_buffer = ReplayBuffer(obs_dim=obs_dim,
-                                 act_dim=act_dim,
-                                 capacity=args.capacity,
-                                 batch_size=args.batch_size)
+    if args.show:
+        replay_buffer = None
+    else:
+        replay_buffer = ReplayBuffer(obs_dim=obs_dim,
+                                     act_dim=act_dim,
+                                     capacity=args.capacity,
+                                     batch_size=args.batch_size)
 
     # create agent
     agent = TD3_Agent(env=env, replay_buffer=replay_buffer,
@@ -76,6 +81,7 @@ if __name__ == '__main__':
                       noise_clip=0.5,
                       policy_delay=2,
                       explore_step=args.explore_step,
+                      eval_freq=args.eval_freq,
                       max_train_step=args.max_train_step,
                       train_id=args.train_id,
                       log_interval=args.log_interval,
@@ -83,7 +89,7 @@ if __name__ == '__main__':
                       device=args.device
                       )
 
-    if args.eval:
-        train_tools.evaluate(agent, 10, render=True)
+    if args.show:
+        train_tools.evaluate(agent, 10, show=True)
     else:
         agent.learn()
