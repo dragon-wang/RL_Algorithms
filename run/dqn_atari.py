@@ -3,14 +3,13 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
-import gym
 import torch
 import numpy as np
 from algos.dqn import DQN_Agent
 from common.buffers import ReplayBuffer
 from common.networks import ConvAtariQsNet
 from utils import train_tools
-from utils import atari_preprocess
+from utils.atari_wrappers import make_atari_env
 
 
 if __name__ == '__main__':
@@ -49,7 +48,7 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    env = atari_preprocess.make_env(args.env, scale_obs=args.scale_obs)
+    env = make_atari_env(args.env, scale_obs=args.scale_obs)
     env.seed(args.seed)
 
     obs_dim = env.observation_space.shape
