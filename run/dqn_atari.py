@@ -35,8 +35,6 @@ if __name__ == '__main__':
                         help='Path to save model and log tensorboard')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Choose cpu or cuda')
-    parser.add_argument('--eval', action='store_true', default=False,
-                        help='evaluate the agent')
     parser.add_argument('--show', action='store_true', default=False,
                         help='show the trained model visually')
     parser.add_argument('--seed', type=int, default=10,
