@@ -81,12 +81,13 @@ Some command line common parameters:
 + `--capacity`: the max size of replay buffer.(`--capacity=xxx`)
 + `--batch_size`: the size of batch that sampled from buffer.(`--batch_size=xxx`)
 + `--explore_step`: the steps of exploration before train.(`--explore_step=xxx`)
++ `--eval_freq`: how often (time steps) we evaluate the trained agent.(`--eval_freq=xxx`)
 + `--max_train_step`: the max train step.(`--max_train_step=xxx`)
 + `--log_interval`: the number of steps taken to record the model and the tensorboard.(`--log_interval=xxx`)
 + `--train_id`: path to save model and log tensorboard.(`--train_id=xxx`)
 + `--resume`: whether load the last saved model to train.(`--resume`)
-+ `--device`: choose device (`--device=cpu` or `--device=cuda`).
-+ `--eval`: whether evaluate the trained agent.(`--eval`)
++ `--device`: choose device.(`--device=cpu` or `--device=cuda`)
++ `--show`: show the trained model visually.(`--show`)
 + `--seed`: the random seed of env or neural network(`--seed=xxx`)
 
 The specific parameters for each algorithm can be viewed in the "xxx.py" files under the "run" folder. Of course I have also provided some default parameters.
@@ -113,12 +114,12 @@ python sac_mujoco.py --env=Hopper-v2 --train_id=sac_Hopper-v2 --max_train_step=2
 
 **Note that the "train_id" must be the same as your last training id.**
 
-## Evaluate the trained agent
+## Show trained agent
 
-You can view the display of the trained agent via `--eval`, such as:
+You can view the display of the trained agent via `--show`, such as:
 
 ```shell
-python sac_mujoco.py --env=Hopper-v2 --train_id=sac_Hopper-v2 --eval
+python sac_mujoco.py --env=Hopper-v2 --train_id=sac_Hopper-v2 --show
 ```
 
 **Note that the "train_id" must be the same as the id of the agent you want to see.**
