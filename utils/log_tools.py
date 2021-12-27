@@ -29,7 +29,9 @@ class TensorboardLogger:
     def log_learn_data(self, log_datas: dict, step):
         for log_data in log_datas.items():
             self.writer.add_scalar("learn_data/" + log_data[0], log_data[1], step)
+        self.writer.flush()
 
     def log_eval_data(self, log_datas: dict, step):
         for log_data in log_datas.items():
             self.writer.add_scalar("evaluate_data/" + log_data[0], log_data[1], step)
+        self.writer.flush()
