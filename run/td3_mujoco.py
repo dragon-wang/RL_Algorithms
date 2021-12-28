@@ -22,7 +22,7 @@ if __name__ == '__main__':
                         help='the size of batch that sampled from buffer')
     parser.add_argument('--explore_step', type=int, default=10000,
                         help='the steps of exploration before train')
-    parser.add_argument('--eval_freq', type=int, default=10000,
+    parser.add_argument('--eval_freq', type=int, default=5000,
                         help='how often (time steps) we evaluate')
     parser.add_argument('--max_train_step', type=int, default=1000000,
                         help='the max train step')
