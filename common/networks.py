@@ -79,7 +79,7 @@ LOG_STD_MAX = 2
 
 class MLPSquashedReparamGaussianPolicy(nn.Module):
     """
-    Policy net.Used in SAC, CQL.
+    Policy net. Used in SAC, CQL, BEAR.
     Input s, output reparameterize, squashed action and log probability of this action
     """
     def __init__(self, obs_dim, act_dim, act_bound, hidden_size, hidden_activation=nn.ReLU, edge=3e-3):
@@ -113,6 +113,29 @@ class MLPSquashedReparamGaussianPolicy(nn.Module):
         mu_action = self.act_bound * torch.tanh(mu)  # used in evaluation
 
         return action, log_prob, mu_action
+
+    def sample_multiple_without_squash(self, obs, sample_num):
+        x = self.mlp(obs)
+        mu = self.fc_mu(x)
+        log_std = self.fc_log_std(x).clamp(LOG_STD_MIN, LOG_STD_MAX)
+        std = torch.exp(log_std)
+
+        dist = Normal(mu, std)
+        raw_action = dist.rsample((sample_num, ))
+
+        return raw_action.transpose(0, 1)  # N x B X D -> B x N x D (N:sample num, B:batch size, D:action dim)
+
+    # def sample_multiple_without_squash(self, obs, num_sample, device=torch.device('cpu')):
+    #     x = self.mlp(obs)
+    #     mu = self.fc_mu(x)
+    #     log_std = self.fc_log_std(x).clamp(LOG_STD_MIN, LOG_STD_MAX)
+    #     std = torch.exp(log_std)
+    #     # This trick stabilizes learning (clipping gaussian to a smaller range)(Used in BEAR)
+    #     z = mu.unsqueeze(1) + \
+    #         std.unsqueeze(1) * torch.FloatTensor(
+    #         np.random.normal(0, 1, size=(std.size(0), num_sample, std.size(1)))).to(device).clamp(-0.5, 0.5)
+    #
+    #     return z
 
 
 class ConvAtariQsNet(nn.Module):
@@ -190,6 +213,18 @@ class CVAE(nn.Module):
         h5 = F.relu(self.d2(h4))
         recon_action = torch.tanh(self.d3(h5)) * self.act_bound
         return recon_action
+
+    def decode_multiple_without_squash(self, obs, decode_num=10, z=None, z_device=torch.device('cpu')):
+        """
+        decode n*b action from b obs and not squash
+        """
+        if z is None:
+            z = torch.randn((obs.shape[0] * decode_num, self.latent_dim)).to(z_device).clamp(-0.5, 0.5)
+        obs_temp = torch.repeat_interleave(obs, decode_num, dim=0)
+        h4 = F.relu(self.d1(torch.cat([obs_temp, z], dim=1)))
+        h5 = F.relu(self.d2(h4))
+        raw_action = self.d3(h5)
+        return raw_action.reshape(obs.shape[0], decode_num, -1)  # B*N x D -> B x N x D
 
     def forward(self, obs, action):
         mu, log_std = self.encode(obs, action)
