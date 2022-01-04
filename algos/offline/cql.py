@@ -67,6 +67,7 @@ class CQL_Agent:
             self.target_entropy = -np.prod(self.env.action_space.shape).item()
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=policy_lr)
+            self.alpha = torch.exp(self.log_alpha)
 
         self.max_train_step = max_train_step
         self.eval_freq = eval_freq
@@ -197,6 +198,8 @@ class CQL_Agent:
 
         if self.with_lagrange:
             alpha_prime = torch.clamp(self.log_alpha_prime.exp(), min=0.0, max=1e6)
+            # the lagrange_thresh has no effect on the gradient of policy,
+            # but it has an effect on the gradient of alpha_prime
             min_qf1_loss = alpha_prime * (min_qf1_loss - self.lagrange_thresh)
             min_qf2_loss = alpha_prime * (min_qf2_loss - self.lagrange_thresh)
 
