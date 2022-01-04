@@ -7,7 +7,6 @@ import gym
 import torch
 import torch.nn as nn
 import numpy as np
-from algos.offline.cql import CQL_Agent
 from algos.offline.bear import BEAR_Agent
 from common.buffers import OfflineBuffer
 from common.networks import MLPQsaNet, MLPSquashedReparamGaussianPolicy, CVAE
