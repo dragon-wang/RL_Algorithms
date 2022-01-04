@@ -17,17 +17,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CQL algorithm in mujoco environment')
     parser.add_argument('--env', type=str, default='hopper-medium-v2',
                         help='the name of environment')
-    parser.add_argument('--batch_size', type=int, default=100,
+    parser.add_argument('--batch_size', type=int, default=256,
                         help='the size of batch that sampled from buffer')
     parser.add_argument('--auto_alpha_tuning', action='store_true', default=False,
                         help='whether automatic tune alpha')
 
     # BEAR
-    parser.add_argument('--mmd_sigma', type=float, default=10.0,
+    parser.add_argument('--mmd_sigma', type=float, default=20.0,
                         help='the sigma used in mmd kernel')
     parser.add_argument('--kernel_type', type=str, default='gaussian',
                         help='the type of mmd kernel(gaussian or laplacian)')
-    parser.add_argument('--lagrange_thresh', type=float, default=10.0,
+    parser.add_argument('--lagrange_thresh', type=float, default=0.05,
                         help='the hyper-parameter used in automatic tuning alpha in cql loss')
 
     parser.add_argument('--max_train_step', type=int, default=1000000,
@@ -62,11 +62,11 @@ if __name__ == '__main__':
 
     # create nets
     policy_net = MLPSquashedReparamGaussianPolicy(obs_dim=obs_dim, act_dim=act_dim, act_bound=act_bound,
-                                                  hidden_size=[400, 300], hidden_activation=nn.ReLU)
-    q_net1 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[400, 300],
+                                                  hidden_size=[256, 256], hidden_activation=nn.ReLU)
+    q_net1 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256],
                        hidden_activation=nn.ReLU)
 
-    q_net2 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[400, 300],
+    q_net2 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256],
                        hidden_activation=nn.ReLU)
 
     cvae_net = CVAE(obs_dim=obs_dim, act_dim=act_dim,
@@ -85,9 +85,9 @@ if __name__ == '__main__':
                        q_net1=q_net1,
                        q_net2=q_net2,
                        cvae_net=cvae_net,
-                       policy_lr=1e-3,
-                       qf_lr=1e-3,
-                       cvae_lr=1e-3,
+                       policy_lr=1e-4,
+                       qf_lr=3e-4,
+                       cvae_lr=3e-4,
                        gamma=0.99,
                        tau=0.05,
                        alpha=0.5,
@@ -98,10 +98,10 @@ if __name__ == '__main__':
                        mmd_sigma=args.mmd_sigma,
                        kernel_type=args.kernel_type,
                        lagrange_thresh=args.lagrange_thresh,
-                       n_action_samples=10,
+                       n_action_samples=100,
                        n_target_samples=10,
-                       n_mmd_action_samples=5,
-                       warmup_step=20000,
+                       n_mmd_action_samples=4,
+                       warmup_step=40000,
 
                        max_train_step=args.max_train_step,
                        log_interval=args.log_interval,

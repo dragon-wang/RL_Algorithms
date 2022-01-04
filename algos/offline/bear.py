@@ -29,9 +29,9 @@ class BEAR_Agent:
                  q_net1: MLPQsaNet,  # critic
                  q_net2: MLPQsaNet,
                  cvae_net: CVAE,
-                 policy_lr=1e-3,
-                 qf_lr=1e-3,
-                 cvae_lr=1e-3,
+                 policy_lr=1e-4,
+                 qf_lr=3e-4,
+                 cvae_lr=3e-4,
                  gamma=0.99,
                  tau=0.05,
                  alpha=0.5,
@@ -39,18 +39,18 @@ class BEAR_Agent:
 
                  # BEAR
                  lmbda=0.75,  # used for double clipped double q-learning
-                 mmd_sigma=10.0,  # the sigma used in mmd kernel
+                 mmd_sigma=20.0,  # the sigma used in mmd kernel
                  kernel_type='gaussian',  # the type of mmd kernel(gaussian or laplacian)
-                 lagrange_thresh=10.0,  # the hyper-parameter used in automatic tuning alpha in cql loss
-                 n_action_samples=10,  # the number of action samples to compute the best action when choose action
+                 lagrange_thresh=0.05,  # the hyper-parameter used in automatic tuning alpha in cql loss
+                 n_action_samples=100,  # the number of action samples to compute the best action when choose action
                  n_target_samples=10,  # the number of action samples to compute BCQ-like target value
-                 n_mmd_action_samples=10,  # the number of action samples to compute MMD.
-                 warmup_step=10000,  # do support matching with a warm start before policy(actor) train
+                 n_mmd_action_samples=4,  # the number of action samples to compute MMD.
+                 warmup_step=40000,  # do support matching with a warm start before policy(actor) train
 
                  max_train_step=1000000,
                  log_interval=1000,
                  eval_freq=5000,
-                 train_id="cql_hopper-medium-v2_test",
+                 train_id="bear_hopper-medium-v2_test",
                  resume=False,  # if True, train from last checkpoint
                  device='cpu',
                  ):
@@ -62,7 +62,6 @@ class BEAR_Agent:
 
         # the network and optimizers
         self.policy_net = policy_net.to(self.device)
-        self.target_policy_net = copy.deepcopy(self.policy_net).to(self.device)
         self.q_net1 = q_net1.to(self.device)
         self.q_net2 = q_net2.to(self.device)
         self.target_q_net1 = copy.deepcopy(self.q_net1).to(self.device)
@@ -100,8 +99,9 @@ class BEAR_Agent:
         self.n_mmd_action_samples = n_mmd_action_samples
         self.warmup_step = warmup_step
 
-        self.log_alpha_prime = torch.zeros(1, requires_grad=True, device=self.device)  # MMD Loss's weight alpha
-        self.alpha_prime_optimizer = torch.optim.Adam([self.log_alpha_prime], lr=qf_lr)
+        # self.log_alpha_prime = torch.tensor(1.0, requires_grad=True, device=self.device)
+        self.log_alpha_prime = torch.tensor(0.0, requires_grad=True, device=self.device)
+        self.alpha_prime_optimizer = torch.optim.Adam([self.log_alpha_prime], lr=1e-3)
 
         # log dir and interval
         self.log_interval = log_interval
@@ -116,8 +116,6 @@ class BEAR_Agent:
             action, log_prob, mu_action = self.policy_net(obs)
             q1 = self.q_net1(obs, action)
             ind = q1.argmax(dim=0)
-            # if eval:
-            #     action = mu_action  # if eval, use mu as the action
         return action[ind].cpu().numpy().flatten()
 
     def mmd_loss_laplacian(self, samples1, samples2, sigma=0.2):
@@ -177,8 +175,8 @@ class BEAR_Agent:
             # generate 10 actions for every next_obs(Same as BCQ)
             next_obs = torch.repeat_interleave(next_obs, repeats=self.n_target_samples, dim=0).to(self.device)
             # compute target Q value of generated action
-            target_q1 = self.target_q_net1(next_obs, self.target_policy_net(next_obs)[0])
-            target_q2 = self.target_q_net2(next_obs, self.target_policy_net(next_obs)[0])
+            target_q1 = self.target_q_net1(next_obs, self.policy_net(next_obs)[0])
+            target_q2 = self.target_q_net2(next_obs, self.policy_net(next_obs)[0])
             # soft clipped double q-learning
             target_q = self.lmbda * torch.min(target_q1, target_q2) + (1. - self.lmbda) * torch.max(target_q1, target_q2)
             # take max over each action sampled from the generation and perturbation model
@@ -252,7 +250,6 @@ class BEAR_Agent:
 
         soft_target_update(self.q_net1, self.target_q_net1, tau=self.tau)
         soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
-        soft_target_update(self.policy_net, self.target_policy_net, tau=self.tau)
 
         self.train_step += 1
 
