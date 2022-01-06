@@ -73,7 +73,10 @@ python bcq_mujoco.py --train_id=bcq_hopper-mudium-v2 --env=hopper-medium-v2  --d
 python plas_mujoco.py --train_id=plas_hopper-mudium-v2 --env=hopper-medium-v2 --device=cuda
 
 # train CQL
-python cql_mujoco.py --train_id=cql_hopper-mudium-v2 --env=hopper-medium-v2 --auto_alpha --device=cuda --entropy_backup --with_lagrange --lagrange_thresh=10.0
+python cql_mujoco.py --train_id=cql_hopper-mudium-v2 --env=hopper-medium-v2 --auto_alpha --entropy_backup --with_lagrange --lagrange_thresh=10.0 --device=cuda 
+
+# train BEAR
+python bear_mujoco.py --env=hopper-medium-v2 --train_id=bear_hopper-mudium-v2 --kernel_type=laplacian --seed=10 --device=cuda
 ```
 
 Some command line common parameters:
