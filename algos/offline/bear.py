@@ -13,14 +13,11 @@ class BEAR_Agent:
     """
     Implementation of Bootstrapping Error Accumulation Reduction (BEAR)
     https://arxiv.org/abs/1906.00949
-    This is BEAR based on SAC, which is suitable for continuous action space.
-    BEAR's MMD Loss's weight alpha is tuned automatically by default.
+    BEAR's MMD Loss's weight alpha_prime is tuned automatically by default.
 
-    Actor Loss: alpha_prime * (MMD Loss - threshold) + SAC Loss
+    Actor Loss: alpha_prime * (MMD Loss - threshold) + -minQ(s,a)
     Critic Loss: Like BCQ
-    Alpha Loss: Same as SAC
     Alpha_prime Loss: -alpha_prime * (MMD Loss - threshold)
-
     """
     def __init__(self,
                  env,
@@ -34,8 +31,6 @@ class BEAR_Agent:
                  cvae_lr=3e-4,
                  gamma=0.99,
                  tau=0.05,
-                 alpha=0.5,
-                 auto_alpha_tuning=False,
 
                  # BEAR
                  lmbda=0.75,  # used for double clipped double q-learning
@@ -74,14 +69,6 @@ class BEAR_Agent:
 
         self.gamma = gamma
         self.tau = tau
-        self.alpha = alpha  # SAC's temperature alpha
-        self.auto_alpha_tuning = auto_alpha_tuning
-
-        if self.auto_alpha_tuning:
-            self.target_entropy = -np.prod(self.env.action_space.shape).item()
-            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
-            self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=policy_lr)
-            self.alpha = torch.exp(self.log_alpha)
 
         self.max_train_step = max_train_step
         self.eval_freq = eval_freq
@@ -99,8 +86,8 @@ class BEAR_Agent:
         self.n_mmd_action_samples = n_mmd_action_samples
         self.warmup_step = warmup_step
 
-        # self.log_alpha_prime = torch.tensor(1.0, requires_grad=True, device=self.device)
-        self.log_alpha_prime = torch.tensor(0.0, requires_grad=True, device=self.device)
+        # mmd loss's temperature
+        self.log_alpha_prime = torch.zeros(1, requires_grad=True, device=self.device)
         self.alpha_prime_optimizer = torch.optim.Adam([self.log_alpha_prime], lr=1e-3)
 
         # log dir and interval
@@ -113,7 +100,7 @@ class BEAR_Agent:
     def choose_action(self, obs, eval=False):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).reshape(1, -1).repeat(self.n_action_samples, 1).to(self.device)
-            action, log_prob, mu_action = self.policy_net(obs)
+            action, _, _ = self.policy_net(obs)
             q1 = self.q_net1(obs, action)
             ind = q1.argmax(dim=0)
         return action[ind].cpu().numpy().flatten()
@@ -180,7 +167,7 @@ class BEAR_Agent:
             # soft clipped double q-learning
             target_q = self.lmbda * torch.min(target_q1, target_q2) + (1. - self.lmbda) * torch.max(target_q1, target_q2)
             # take max over each action sampled from the generation and perturbation model
-            target_q = target_q.reshape(obs.shape[0], 10, 1).max(1)[0].squeeze(1)
+            target_q = target_q.reshape(obs.shape[0], self.n_target_samples, 1).max(1)[0].squeeze(1)
             target_q = rews + self.gamma * (1. - done) * target_q
 
         # compute current Q
@@ -220,12 +207,12 @@ class BEAR_Agent:
 
         """
         Actor Training
-        Actor Loss = alpha_prime * (MMD Loss - threshold) + SAC Actor Loss
+        Actor Loss = alpha_prime * (MMD Loss - threshold) + -minQ(s,a)
         """
-        # SAC Actor Loss
         a, log_prob, _ = self.policy_net(obs)
         min_q = torch.min(self.q_net1(obs, a), self.q_net2(obs, a)).squeeze(1)
-        policy_loss = (self.alpha * log_prob - min_q).mean()
+        # policy_loss = (self.alpha * log_prob - min_q).mean()  # SAC Type
+        policy_loss = - (min_q.mean())
 
         # BEAR Actor Loss
         actor_loss = (self.log_alpha_prime.exp() * mmd_loss).mean()
@@ -235,25 +222,12 @@ class BEAR_Agent:
         actor_loss.backward()  # the mmd_loss will backward again in alpha_prime_loss.
         self.policy_optimizer.step()
 
-        """
-        Alpha training(lagrangian parameter update for SAC temperature)
-        """
-        if self.auto_alpha_tuning:
-            alpha_loss = -(self.log_alpha * (log_prob + self.target_entropy).detach()).mean()
-            self.alpha_optimizer.zero_grad()
-            alpha_loss.backward()
-            self.alpha_optimizer.step()
-
-            self.alpha = self.log_alpha.exp()
-        else:
-            alpha_loss = torch.tensor(0)
-
         soft_target_update(self.q_net1, self.target_q_net1, tau=self.tau)
         soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
 
         self.train_step += 1
 
-        return critic_loss1.cpu().item(), critic_loss2.cpu().item(), policy_loss.cpu().item(), alpha_loss.cpu().item(), alpha_prime_loss.cpu().item()
+        return critic_loss1.cpu().item(), critic_loss2.cpu().item(), policy_loss.cpu().item(), alpha_prime_loss.cpu().item()
 
     def learn(self):
         if self.resume:
@@ -264,7 +238,7 @@ class BEAR_Agent:
 
         while self.train_step < (int(self.max_train_step)):
             # train
-            q_loss1, q_loss2, policy_loss, alpha_loss, alpha_prime_loss = self.train()
+            q_loss1, q_loss2, policy_loss, alpha_prime_loss = self.train()
 
             if self.train_step % self.eval_freq == 0:
                 avg_reward, avg_length = evaluate(agent=self, episode_num=5)
@@ -276,7 +250,6 @@ class BEAR_Agent:
                 self.tensorboard_writer.log_train_data({"q_loss_1": q_loss1,
                                                         "q_loss_2": q_loss2,
                                                         "policy_loss": policy_loss,
-                                                        "alpha_loss": alpha_loss,
                                                         "alpha_prime_loss": alpha_prime_loss}, self.train_step)
 
     def store_agent_checkpoint(self):
@@ -287,14 +260,10 @@ class BEAR_Agent:
             "q_optimizer1": self.q_optimizer1.state_dict(),
             "q_optimizer2": self.q_optimizer2.state_dict(),
             "policy_optimizer": self.policy_optimizer.state_dict(),
+            "log_alpha_prime": self.log_alpha_prime,
+            "alpha_prime_optimizer": self.alpha_prime_optimizer.state_dict(),
             "train_step": self.train_step,
         }
-        if self.auto_alpha_tuning:
-            checkpoint["log_alpha"] = self.log_alpha
-            checkpoint["alpha_optimizer"] = self.alpha_optimizer.state_dict()
-
-        checkpoint["log_alpha_prime"] = self.log_alpha_prime
-        checkpoint["alpha_prime_optimizer"] = self.alpha_prime_optimizer.state_dict()
 
         torch.save(checkpoint, self.checkpoint_path)
 
@@ -306,14 +275,9 @@ class BEAR_Agent:
         self.q_optimizer1.load_state_dict(checkpoint["q_optimizer1"])
         self.q_optimizer2.load_state_dict(checkpoint["q_optimizer2"])
         self.policy_optimizer.load_state_dict(checkpoint["policy_optimizer"])
-        self.train_step = checkpoint["train_step"]
-
-        if self.auto_alpha_tuning:
-            self.log_alpha = checkpoint["log_alpha"]
-            self.alpha_optimizer.load_state_dict(checkpoint["alpha_optimizer"])
-
         self.log_alpha_prime = checkpoint["log_alpha_prime"]
         self.alpha_prime_optimizer.load_state_dict(checkpoint["alpha_prime_optimizer"])
+        self.train_step = checkpoint["train_step"]
 
         print("load checkpoint from \"" + self.checkpoint_path +
               "\" at " + str(self.train_step) + " time step")

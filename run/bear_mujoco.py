@@ -18,8 +18,6 @@ if __name__ == '__main__':
                         help='the name of environment')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='the size of batch that sampled from buffer')
-    parser.add_argument('--auto_alpha_tuning', action='store_true', default=False,
-                        help='whether automatic tune alpha')
 
     # BEAR
     parser.add_argument('--mmd_sigma', type=float, default=20.0,
@@ -89,8 +87,6 @@ if __name__ == '__main__':
                        cvae_lr=3e-4,
                        gamma=0.99,
                        tau=0.05,
-                       alpha=0.5,
-                       auto_alpha_tuning=args.auto_alpha_tuning,
 
                        # BEAR
                        lmbda=0.75,
