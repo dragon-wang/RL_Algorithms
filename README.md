@@ -43,6 +43,8 @@ Use the existing data set  for training, and there is no interaction with the en
                      (Can be installed in "https://github.com/rail-berkeley/d4rl")
 |d4rl-atari 0.1    | Only used in Offline RL. Include offline dataset of Atari.
                      (Can be installed in "https://github.com/takuseno/d4rl-atari")
+|mlagents 0.27.0   | To train agents in unity's self built environment.
+                     (Can be installed in "https://github.com/Unity-Technologies/ml-agents")
 ```
 
 ## Quick start
@@ -56,15 +58,18 @@ cd run
 python dqn_gym.py --env=CartPole-v0 --train_id=dqn_test  
 
 # train DDPG
-python python ddpg_gym.py --env=Pendulum-v0 --train_id=ddpg_Pendulum-v0  
+python ddpg_gym.py --env=Pendulum-v0 --train_id=ddpg_Pendulum-v0
+python ddpg_unity.py --train_id=ddpg_unity_test
 
 # train SAC
 python sac_gym.py --env=Pendulum-v0 --train_id=sac_Pendulum-v0  
 python sac_mujoco.py --env=Hopper-v2 --train_id=sac_Hopper-v2 --max_train_step=2000000 --auto
+python sac_unity.py --train_id=sac_unity_test --auto
 
 # train TD3
 python td3_gym.py --env=Pendulum-v0 --train_id=td3_Pendulum-v0
 python td3_mujoco.py --env=Hopper-v2 --train_id=td3_Hopper-v2  
+python td3_unity.py --train_id=td3_unity_test
 
 # train BCQ
 python bcq_mujoco.py --train_id=bcq_hopper-mudium-v2 --env=hopper-medium-v2  --device=cuda
@@ -85,7 +90,7 @@ Some command line common parameters:
 + `--capacity`: the max size of replay buffer.(`--capacity=xxx`)
 + `--batch_size`: the size of batch that sampled from buffer.(`--batch_size=xxx`)
 + `--explore_step`: the steps of exploration before train.(`--explore_step=xxx`)
-+ `--eval_freq`: how often (time steps) we evaluate the trained agent.(`--eval_freq=xxx`)
++ `--eval_freq`: how often (time steps) we evaluate during training, and it will not evaluate if `eval_freq < 0`(but in offline algorithms, we must evaluate during training).(`--eval_freq=xxx`)
 + `--max_train_step`: the max train step.(`--max_train_step=xxx`)
 + `--log_interval`: the number of steps taken to record the model and the tensorboard.(`--log_interval=xxx`)
 + `--train_id`: path to save model and log tensorboard.(`--train_id=xxx`)
