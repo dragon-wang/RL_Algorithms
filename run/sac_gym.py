@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--explore_step', type=int, default=2000,
                         help='the steps of exploration before train')
     parser.add_argument('--eval_freq', type=int, default=1000,
-                        help='how often (time steps) we evaluate')
+                        help='how often (time steps) we evaluate during train, and it will not eval if eval_freq < 0')
     parser.add_argument('--max_train_step', type=int, default=100000,
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,

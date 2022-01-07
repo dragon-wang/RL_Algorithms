@@ -25,7 +25,7 @@ class TD3_Agent:
                  gamma=0.99,
                  tau=0.005,  # used to update target network, w' = tau*w + (1-tau)*w'
                  explore_step=10000,
-                 eval_freq=1000,
+                 eval_freq=1000,   # it will not evaluate the agent during train if eval_freq < 0
                  max_train_step=1000000,
                  act_noise=0.1,  # Std of Gaussian exploration noise
                  policy_noise=0.2,  # Noise added to target policy during critic update
@@ -190,7 +190,7 @@ class TD3_Agent:
                 self.tensorboard_writer.log_train_data({"critic_loss1": critic_loss1,
                                                         "critic_loss2": critic_loss2}, self.train_step)
 
-            if self.train_step % self.eval_freq == 0:
+            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
                 avg_reward, avg_length = evaluate(agent=self, episode_num=5)
                 self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
                                                        "eval_episode_reward": avg_reward}, self.train_step)

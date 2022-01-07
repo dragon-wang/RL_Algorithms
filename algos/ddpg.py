@@ -24,7 +24,7 @@ class DDPG_Agent:
                  gamma=0.99,
                  tau=0.005,  # used to update target network, w' = tau*w + (1-tau)*w'
                  explore_step=128,
-                 eval_freq=1000,
+                 eval_freq=1000,   # it will not evaluate the agent during train if eval_freq < 0
                  max_train_step=10000,
                  gaussian_noise_sigma=0.2,
                  train_id="ddpg_Pendulum_test",
@@ -164,7 +164,7 @@ class DDPG_Agent:
                 self.tensorboard_writer.log_train_data({"actor_loss": actor_loss,
                                                         "critic_loss": critic_loss}, self.train_step)
 
-            if self.train_step % self.eval_freq == 0:
+            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
                 avg_reward, avg_length = evaluate(agent=self, episode_num=5)
                 self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
                                                        "eval_episode_reward": avg_reward}, self.train_step)

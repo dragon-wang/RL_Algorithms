@@ -15,7 +15,7 @@ class SAC_Agent:
     https://arxiv.org/abs/1812.05905(SAC 2019)
     """
     def __init__(self,
-                 env,
+                 env: Env,
                  replay_buffer: ReplayBuffer,
                  policy_net: torch.nn.Module,  # actor
                  q_net1: torch.nn.Module,  # critic
@@ -27,7 +27,7 @@ class SAC_Agent:
                  alpha=0.5,
                  auto_alpha_tuning=False,
                  explore_step=2000,
-                 eval_freq=1000,
+                 eval_freq=1000,  # it will not evaluate the agent during train if eval_freq < 0
                  max_train_step=50000,
                  train_id="sac_Pendulum_test",
                  log_interval=1000,
@@ -188,7 +188,7 @@ class SAC_Agent:
                                                         "policy_loss": policy_loss,
                                                         "alpha_loss": alpha_loss}, self.train_step)
 
-            if self.train_step % self.eval_freq == 0:
+            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
                 avg_reward, avg_length = evaluate(agent=self, episode_num=5)
                 self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
                                                        "eval_episode_reward": avg_reward}, self.train_step)
