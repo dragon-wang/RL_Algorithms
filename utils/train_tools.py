@@ -67,6 +67,36 @@ def evaluate(agent, episode_num, show=False):
     return avg_reward, avg_length
 
 
+def evaluate_unity(agent, episode_num):
+    agent.load_agent_checkpoint()
+    eval_env = agent.env
+    total_reward = 0
+    total_length = 0
+    print("---------------------------------- evaluating at time step {} ----------------------------------".format(agent.train_step))
+    for i in range(episode_num):
+        episode_reward = 0
+        episode_length = 0
+        obs, done = eval_env.reset(), False
+        while not done:
+            action = agent.choose_action(obs, eval=True)
+            action = action[0] if isinstance(action, tuple) else action
+            obs, reward, done, _ = eval_env.step(action)
+            episode_reward += reward
+            episode_length += 1
+            if done:
+                total_reward += episode_reward
+                total_length += episode_length
+                print("episode:{} \t step length: {} \t reward: {:.2f}".format(i + 1, episode_length, episode_reward))
+
+    avg_reward = total_reward / episode_num
+    avg_length = total_length / episode_num
+
+    print("=====> evaluate {} episode <===> average step length: {:.2f} <===> average reward: {:.2f} <=====".format(episode_num, avg_length, avg_reward))
+    print("---------------------------------------------------------------------------------------------------")
+
+    return avg_reward, avg_length
+
+
 class OrnsteinUhlenbeckActionNoise:
     """
     used in DDPG. OU noise
