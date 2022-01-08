@@ -15,9 +15,9 @@ class BEAR_Agent:
     https://arxiv.org/abs/1906.00949
     BEAR's MMD Loss's weight alpha_prime is tuned automatically by default.
 
-    Actor Loss: alpha_prime * (MMD Loss - threshold) + -minQ(s,a)
+    Actor Loss: alpha_prime * MMD Loss + -minQ(s,a)
     Critic Loss: Like BCQ
-    Alpha_prime Loss: -alpha_prime * (MMD Loss - threshold)
+    Alpha_prime Loss: -(alpha_prime * (MMD Loss - threshold))
     """
     def __init__(self,
                  env,
@@ -207,7 +207,7 @@ class BEAR_Agent:
 
         """
         Actor Training
-        Actor Loss = alpha_prime * (MMD Loss - threshold) + -minQ(s,a)
+        Actor Loss = alpha_prime * MMD Loss + -minQ(s,a)
         """
         a, log_prob, _ = self.policy_net(obs)
         min_q = torch.min(self.q_net1(obs, a), self.q_net2(obs, a)).squeeze(1)
