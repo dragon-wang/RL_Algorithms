@@ -9,7 +9,7 @@ import torch.nn as nn
 import numpy as np
 from algos.offline.plas import PLAS_Agent
 from common.buffers import OfflineBuffer
-from common.networks import MLPQsaNet, CVAE, PLAS_PerturbationActor, DDPGMLPActor
+from common.networks import MLPQsaNet, CVAE, PLAS_Actor, DDPGMLPActor
 from utils import train_tools, data_tools
 
 
@@ -19,7 +19,7 @@ if __name__ == '__main__':
                         help='the name of environment')
     parser.add_argument('--batch_size', type=int, default=100,
                         help='the size of batch that sampled from buffer')
-    parser.add_argument('--max_train_step', type=int, default=2000000,
+    parser.add_argument('--max_train_step', type=int, default=500000,
                         help='the max train step')
     parser.add_argument('--max_cvae_iterations', type=int, default=500000,
                         help='the num of iterations when training CVAE model')
@@ -61,14 +61,10 @@ if __name__ == '__main__':
     cvae_net = CVAE(obs_dim=obs_dim, act_dim=act_dim,
                     latent_dim=2 * act_dim, act_bound=act_bound)
 
-    if args.use_ptb:
-        actor_net = PLAS_PerturbationActor(obs_dim=obs_dim, act_dim=act_dim, latent_act_dim=2 * act_dim,
-                                           act_bound=act_bound, latent_act_bound=2,
-                                           actor_hidden_size=[400, 300], ptb_hidden_size=[400, 300],
-                                           hidden_activation=nn.ReLU, phi=0.05)
-    else:
-        actor_net = DDPGMLPActor(obs_dim=obs_dim, act_dim=2 * act_dim, act_bound=act_bound,
-                                 hidden_size=[400, 300], hidden_activation=nn.ReLU)
+    actor_net = PLAS_Actor(obs_dim=obs_dim, act_dim=act_dim, latent_act_dim=2 * act_dim,
+                           act_bound=act_bound, latent_act_bound=2,
+                           actor_hidden_size=[400, 300], ptb_hidden_size=[400, 300], hidden_activation=nn.ReLU,
+                           use_ptb=args.use_ptb, phi=0.05)
 
     # create buffer
     if args.show:

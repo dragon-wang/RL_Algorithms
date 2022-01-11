@@ -266,28 +266,36 @@ class BCQ_Perturbation(nn.Module):
         return (a + action).clamp(-self.act_bound, self.act_bound)
 
 
-class PLAS_PerturbationActor(nn.Module):
+class PLAS_Actor(nn.Module):
     def __init__(self, obs_dim, act_dim, latent_act_dim, act_bound, latent_act_bound=2,
                  actor_hidden_size=[400, 300], ptb_hidden_size=[400, 300], hidden_activation=nn.ReLU,
+                 use_ptb=False,  # whether use the perturbation layer
                  phi=0.05  # the Phi in perturbation model:
                  ):
-        super(PLAS_PerturbationActor, self).__init__()
+        super(PLAS_Actor, self).__init__()
         self.actor_mlp = MLP(input_dim=obs_dim, output_dim=latent_act_dim,
                              hidden_size=actor_hidden_size, hidden_activation=hidden_activation)
-        self.ptb_mlp = MLP(input_dim=obs_dim + act_dim, output_dim=act_dim,
-                           hidden_size=ptb_hidden_size, hidden_activation=hidden_activation)
+        if use_ptb:
+            self.ptb_mlp = MLP(input_dim=obs_dim + act_dim, output_dim=act_dim,
+                               hidden_size=ptb_hidden_size, hidden_activation=hidden_activation)
         self.latent_act_bound = latent_act_bound
         self.act_bound = act_bound
+        self.use_ptb = use_ptb
         self.phi = phi
 
     def forward(self, obs, decoder):
         a = torch.tanh(self.actor_mlp(obs))
-        latent_action = self.latent_act_bound * a
+        if self.use_ptb:
+            latent_action = self.latent_act_bound * a
 
-        decode_action = decoder(obs, z=latent_action)
+            decode_action = decoder(obs, z=latent_action)
 
-        x = torch.cat([obs, decode_action], dim=1)
-        a = self.phi * torch.tanh(self.ptb_mlp(x))  # different from BCQ
-        ptb_action = (a + decode_action).clamp(-self.act_bound, self.act_bound)
+            x = torch.cat([obs, decode_action], dim=1)
+            a = self.phi * torch.tanh(self.ptb_mlp(x))  # different from BCQ
+            ptb_action = (a + decode_action).clamp(-self.act_bound, self.act_bound)
 
-        return ptb_action
+            return ptb_action
+        else:
+            latent_action = self.act_bound * a
+            decode_action = decoder(obs, z=latent_action)
+            return decode_action

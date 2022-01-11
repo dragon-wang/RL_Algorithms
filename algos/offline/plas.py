@@ -1,9 +1,9 @@
 import copy
 import os
-import numpy as np
 import torch
 import torch.nn.functional as F
 from common.buffers import OfflineBuffer
+from common.networks import MLPQsaNet, CVAE, PLAS_Actor
 from utils.train_tools import soft_target_update, evaluate
 from utils import log_tools
 
@@ -16,10 +16,10 @@ class PLAS_Agent:
     def __init__(self,
                  env,
                  data_buffer: OfflineBuffer,
-                 critic_net1: torch.nn.Module,
-                 critic_net2: torch.nn.Module,
-                 actor_net: torch.nn.Module,
-                 cvae_net: torch.nn.Module,  # generation model
+                 critic_net1: MLPQsaNet,
+                 critic_net2: MLPQsaNet,
+                 actor_net: PLAS_Actor,
+                 cvae_net: CVAE,  # generation model
                  critic_lr=1e-3,
                  actor_lr=1e-4,
                  cvae_lr=1e-4,
@@ -74,7 +74,7 @@ class PLAS_Agent:
     def choose_action(self, obs, eval=True):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
-            action = self.cvae_net.decode(obs, z=self.actor_net(obs))
+            action = self.actor_net(obs, self.cvae_net.decode)
         return action.cpu().data.numpy().flatten()
 
     def train_cvae(self):
@@ -110,9 +110,7 @@ class PLAS_Agent:
         Train Critic
         """
         with torch.no_grad():
-            latent_action_next = self.target_actor_net(next_obs)
-
-            decode_action_next = self.cvae_net.decode(next_obs, z=latent_action_next)
+            decode_action_next = self.target_actor_net(next_obs, self.cvae_net.decode)
 
             target_q1 = self.target_critic_net1(next_obs, decode_action_next)
             target_q2 = self.target_critic_net2(next_obs, decode_action_next)
@@ -134,8 +132,7 @@ class PLAS_Agent:
         """
         Train Actor
         """
-        latent_action = self.actor_net(obs)
-        decode_action = self.cvae_net.decode(next_obs, z=latent_action)
+        decode_action = self.actor_net(obs, self.cvae_net.decode)
         actor_loss = -self.critic_net1(obs, decode_action).mean()
 
         self.actor_optimizer.zero_grad()
@@ -162,7 +159,7 @@ class PLAS_Agent:
             log_tools.del_all_files_in_dir(self.result_dir)
 
         # Train CVAE before train agent
-        print("Start to train CVAE")
+        print("==============================Start to train CVAE==============================")
 
         while self.cvae_iterations < (int(self.max_cvae_iterations)):
             cvae_loss = self.train_cvae()
@@ -171,7 +168,7 @@ class PLAS_Agent:
                 self.tensorboard_writer.log_train_data({"cvae_loss": cvae_loss}, self.cvae_iterations)
 
         # Train Agent
-        print("Start to train Agent")
+        print("==============================Start to train Agent==============================")
         while self.train_step < (int(self.max_train_step)):
             critic_loss, actor_loss = self.train()
 
