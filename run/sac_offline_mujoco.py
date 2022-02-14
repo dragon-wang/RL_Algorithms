@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--auto_alpha_tuning', action='store_true', default=False,
                         help='whether automatic tune alpha')
 
-    parser.add_argument('--max_train_step', type=int, default=2000000,
+    parser.add_argument('--max_train_step', type=int, default=1000000,
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')

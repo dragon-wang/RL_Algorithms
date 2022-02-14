@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--lagrange_thresh', type=float, default=10.0,
                         help='the hyper-parameter used in automatic tuning alpha in cql loss')
 
-    parser.add_argument('--max_train_step', type=int, default=2000000,
+    parser.add_argument('--max_train_step', type=int, default=1000000,
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
