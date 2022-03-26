@@ -164,7 +164,7 @@ class BCQ_Agent:
             cvae_loss, critic_loss, perturbation_loss = self.train()
 
             if self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
                 self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
                                                        "eval_episode_reward": avg_reward}, self.train_step)
 

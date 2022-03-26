@@ -5,6 +5,8 @@ from common.buffers import ReplayBuffer
 import numpy as np
 import copy
 
+EVAL_SEED = 10  # used for evaluation env's seed
+
 
 def hard_target_update(main, target):
     target.load_state_dict(main.state_dict())
@@ -32,11 +34,11 @@ def explore_before_train(env: Env, buffer, explore_step):
             obs = next_obs
 
 
-def evaluate(agent, episode_num, show=False):
+def evaluate(agent, episode_num, seed_offset=100, show=False):
     if show:
         agent.load_agent_checkpoint()
     eval_env = copy.deepcopy(agent.env)
-    eval_env.seed()  # reset environment's seed for evaluate
+    eval_env.seed(EVAL_SEED + seed_offset)  # reset environment's seed for evaluate(the seed will not be copied by deepcopy)
     total_reward = 0
     total_length = 0
     print("---------------------------------- evaluating at time step {} ----------------------------------".format(agent.train_step))

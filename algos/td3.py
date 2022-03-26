@@ -191,7 +191,7 @@ class TD3_Agent:
                                                         "critic_loss2": critic_loss2}, self.train_step)
 
             if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
+                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
                 self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
                                                        "eval_episode_reward": avg_reward}, self.train_step)
 

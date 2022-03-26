@@ -45,6 +45,8 @@ if __name__ == '__main__':
     # create environment
     env = gym.make(args.env)
     env.seed(args.seed)
+    env.action_space.seed(args.seed)
+    train_tools.EVAL_SEED = args.seed
 
     obs_dim = env.observation_space.shape[0]
     act_dim = env.action_space.shape[0]
