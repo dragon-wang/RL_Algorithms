@@ -238,7 +238,7 @@ class BEAR_Agent:
 
         while self.train_step < (int(self.max_train_step)):
             # train
-            q_loss1, q_loss2, policy_loss, alpha_prime_loss = self.train()
+            q_loss1, q_loss2, actor_loss, alpha_prime_loss = self.train()
 
             if self.train_step % self.eval_freq == 0:
                 avg_reward, avg_length = evaluate(agent=self, episode_num=10)
@@ -249,7 +249,7 @@ class BEAR_Agent:
                 self.store_agent_checkpoint()
                 self.tensorboard_writer.log_train_data({"q_loss_1": q_loss1,
                                                         "q_loss_2": q_loss2,
-                                                        "policy_loss": policy_loss,
+                                                        "actor_loss": actor_loss,
                                                         "alpha_prime_loss": alpha_prime_loss}, self.train_step)
 
     def store_agent_checkpoint(self):
