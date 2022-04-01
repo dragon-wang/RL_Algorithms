@@ -299,3 +299,32 @@ class PLAS_Actor(nn.Module):
             latent_action = self.act_bound * a
             decode_action = decoder(obs, z=latent_action)
             return decode_action
+
+
+class EnsembleQNet(nn.Module):
+    def __init__(self, obs_dim, act_dim, shared_hidden=[256, 256], ensemble_num=5):
+        super(EnsembleQNet, self).__init__()
+        self.shared_net = MLP(input_dim=obs_dim + act_dim, output_dim=ensemble_num, hidden_size=shared_hidden)
+
+    def forward(self, obs, act):
+        x = torch.cat([obs, act], dim=1)
+
+        shared_out = self.shared_net(x)
+
+        return shared_out
+
+
+if __name__ == '__main__':
+    device = torch.device('cuda')
+    net = EnsembleQNet(10, 6)
+
+    obs = torch.randn(3, 10)
+    act = torch.randn(3, 6)
+    Qs = net(obs, act)
+    print(Qs)
+    #
+    # # print(cat_Qs)
+    print(torch.min(Qs, dim=1)[0])
+    print(torch.mean(Qs, dim=1))
+    # print(sum(Qs)/len(Qs))
+    # print(min(Qs))
