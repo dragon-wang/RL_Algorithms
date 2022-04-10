@@ -30,7 +30,7 @@ if __name__ == '__main__':
                         help='whether use max q backup')
     parser.add_argument('--with_lagrange', action='store_true', default=False,
                         help='whether auto tune alpha in Conservative Q Loss(different from the alpha in sac)')
-    parser.add_argument('--lagrange_thresh', type=float, default=10.0,
+    parser.add_argument('--lagrange_thresh', type=float, default=5.0,
                         help='the hyper-parameter used in automatic tuning alpha in cql loss')
 
     parser.add_argument('--max_train_step', type=int, default=1000000,
@@ -67,11 +67,11 @@ if __name__ == '__main__':
 
     # create nets
     policy_net = MLPSquashedReparamGaussianPolicy(obs_dim=obs_dim, act_dim=act_dim, act_bound=act_bound,
-                                                  hidden_size=[256, 256], hidden_activation=nn.ReLU)
-    q_net1 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256],
+                                                  hidden_size=[256, 256, 256], hidden_activation=nn.ReLU)
+    q_net1 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256, 256],
                        hidden_activation=nn.ReLU)
 
-    q_net2 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256],
+    q_net2 = MLPQsaNet(obs_dim=obs_dim, act_dim=act_dim, hidden_size=[256, 256, 256],
                        hidden_activation=nn.ReLU)
 
     # create buffer
