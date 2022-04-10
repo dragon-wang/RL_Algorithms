@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import seaborn as sns
 from matplotlib import pyplot as plt
-sns.set()
 
 
 def smooth(df, column, weight=0.6):
@@ -71,14 +70,20 @@ def plot_from_paths(path_list, label_list, tag='evaluate_data/eval_episode_rewar
         else:
             sns.lineplot(x="step", y="value", data=df_temp, label=label_list[i])
     plt.legend(loc="upper left")
+    plt.xlabel("time step", fontsize=13)
+    plt.ylabel("average reward", fontsize=13)
     plt.show()
 
 
 if __name__ == '__main__':
-    path_list = ["E:/PycharmProjects/RL_Algorithms/run/results/td3/Hopper-v2",
-                 "E:/PycharmProjects/RL_Algorithms/run/results/sac/Hopper-v2"]
+    path_list = ["E:/PycharmProjects/RL_Algorithms/run/results/bcq/Hopper-v0/medium-expert",
+                 "E:/PycharmProjects/RL_Algorithms/run/results/bear/Hopper-v0/medium-expert",
+                 "E:/PycharmProjects/RL_Algorithms/run/results/cql/Hopper-v0/medium-expert",
+                 ]
 
-    label_list = ["TD3",
-                  "SAC"]
+    label_list = ["BCQ",
+                  "BEAR",
+                  "CQL",
+                  ]
 
-    plot_from_paths(path_list, label_list, smooth_weight=0.6)
+    plot_from_paths(path_list, label_list, smooth_weight=0.7)
