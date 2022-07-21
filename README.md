@@ -1,5 +1,5 @@
 # RL_Algorithms
-Reinforcement learning algorithms with pytorch
+A lightweight reinforcement learning algorithm library implemented by pytorch
 ## supported algorithms
 
 ### Online RL
@@ -52,7 +52,8 @@ Use the existing data set  for training, and there is no interaction with the en
 ### To train the agents on the environments
 
 ```shell
-cd run
+git clone https://github.com/dragon-wang/RL_Algorithms.git
+cd RL_Algorithms/run
 
 # train DQN
 python dqn_gym.py --env=CartPole-v0 --train_id=dqn_test  
