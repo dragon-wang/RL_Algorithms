@@ -45,6 +45,71 @@ class ReplayBuffer:
                     done=torch.FloatTensor(self.done[ind]))  # 1D
 
 
+class TrajectoryBuffer:
+    """
+    Used to store experiences for a trajectory (e.g., in PPO)
+    """
+    def __init__(self, obs_dim: Union[int, Sequence[int]], act_dim: int, capacity: int):
+
+        # Transfer the "int" observation dimension to "list"
+        if isinstance(obs_dim, int):
+            self.obs_dim = [obs_dim]
+        else:
+            self.obs_dim = list(obs_dim)
+        self.act_dim = act_dim
+        self.max_size = capacity
+        self.ptr = 0  # Point to the current position in the buffer
+
+        # Use numpy.ndarray to initialize the replay buffer
+        self.obs = np.zeros(shape=[self.max_size] + self.obs_dim, dtype=np.float32)
+        self.acts = np.zeros((self.max_size, self.act_dim), dtype=np.float32)
+        self.rews = np.zeros(self.max_size, dtype=np.float32)
+        self.done = np.zeros(self.max_size, dtype=np.float32)
+        self.log_probs = np.zeros(self.max_size, dtype=np.float32)  # the log probability of choosing an action
+        self.values = np.zeros(self.max_size + 1, dtype=np.float32)  # the value of the state. the length of values is T+1, while others are T
+        self.rets = np.zeros(self.max_size, dtype=np.float32)  # the Return in time t, which is also known as G_t.
+        self.gae_advs = np.zeros(self.max_size, dtype=np.float32)  # the GAE advantage
+
+    def add(self, obs, act, rew, done, log_prob, value):
+        self.obs[self.ptr] = obs
+        self.acts[self.ptr] = act
+        self.rews[self.ptr] = rew
+        self.done[self.ptr] = float(done)
+        self.log_probs[self.ptr] = log_prob
+        self.values[self.ptr] = value
+
+    def finish_path(self, last_val=0, gamma=0.99, gae_lambda=0.95, gae_normalize=False):
+        """
+        This method is called at the end of a trajectory
+        """
+        self.values[-1] = last_val
+
+        g = self.values[-1]
+        gae_adv = 0
+        for i in reversed(range(len(self.rews))):
+            # compute G_t
+            g = self.rews[i] + gamma * g * (1-self.done[i])
+            self.rets[i] = g
+            # compute A_t
+            delt = self.rews[i] + gamma * self.values[i + 1] * (1 - self.done[i]) - self.values[i]
+            gae_adv = delt + gamma * gae_lambda * gae_adv * (1 - self.done[i])
+            self.gae_advs[i] = gae_adv
+
+        if gae_normalize:
+            self.gae_advs = (self.gae_advs - np.mean(self.gae_advs) / np.std(self.gae_advs))
+
+        self.ptr = 0
+
+    def sample(self):
+        return dict(obs=torch.FloatTensor(self.obs),
+                    acts=torch.FloatTensor(self.acts),
+                    rews=torch.FloatTensor(self.rews),
+                    done=torch.FloatTensor(self.done),
+                    log_probs=torch.FloatTensor(self.log_probs),
+                    gae_advs=torch.FloatTensor(self.gae_advs),
+                    rets=torch.FloatTensor(self.rets))
+
+
 class OfflineBuffer:
     """
     Used in offline setting
