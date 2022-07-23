@@ -8,10 +8,10 @@ from utils.train_tools import hard_target_update, explore_before_train, evaluate
 from utils import log_tools
 
 
-class DQN_Agent:
+class DDQN_Agent:
     """
-    Implementation of Deep Q-Network (DQN)
-    https://storage.googleapis.com/deepmind-media/dqn/DQNNaturePaper.pdf
+    Implementation of Double DQN (DDQN)
+    https://arxiv.org/abs/1509.06461
     """
     def __init__(self,
                  env: Env,
@@ -28,7 +28,7 @@ class DQN_Agent:
                  explore_step=500,
                  eval_freq=1000,   # it will not evaluate the agent during train if eval_freq < 0
                  max_train_step=10000,
-                 train_id="dqn_CartPole_test",
+                 train_id="ddqn_CartPole_test",
                  log_interval=1000,
                  resume=False,  # if True, train from last checkpoint
                  device='cpu'
@@ -37,8 +37,8 @@ class DQN_Agent:
         self.replay_buffer = replay_buffer
 
         self.explore_step = explore_step
-        self.max_train_step = max_train_step
         self.eval_freq = eval_freq
+        self.max_train_step = max_train_step
         self.train_interval = train_interval
         self.target_update_freq = target_update_freq
 
@@ -90,20 +90,22 @@ class DQN_Agent:
         next_obs = batch["next_obs"].to(self.device)
         done = batch["done"].to(self.device)
 
-        # Compute target Q value
+        # Compute target Q value (Double DQN)
         with torch.no_grad():
-            target_q = rews + (1. - done) * self.gamma * self.target_Q_net(next_obs).max(dim=1)[0]
+            next_acts = self.Q_net(next_obs).max(dim=1)[1].unsqueeze(1)  # use Q net to get next actions, rather than target Q net
+            target_Q = self.target_Q_net(next_obs).gather(1, next_acts).squeeze(1)
+            target_Q = rews + (1. - done) * self.gamma * target_Q
 
         # Compute current Q value
-        current_q = self.Q_net(obs).gather(1, acts.long()).squeeze(1)
+        current_Q = self.Q_net(obs).gather(1, acts.long()).squeeze(1)
 
         # Compute Q loss
-        q_loss = 0.5 * (target_q - current_q).pow(2).mean()
+        Q_loss = 0.5 * (target_Q - current_Q).pow(2).mean()
         # Q_loss = F.mse_loss(current_Q, target_Q)
 
         # Optimize the Q network
         self.optimizer.zero_grad()
-        q_loss.backward()
+        Q_loss.backward()
         self.optimizer.step()
 
         self.train_step += 1
@@ -112,7 +114,7 @@ class DQN_Agent:
         if self.train_step % self.target_update_freq == 0:
             hard_target_update(self.Q_net, self.target_Q_net)
 
-        return q_loss.cpu().item()
+        return Q_loss.cpu().item()
 
     def learn(self):
         if self.resume:
@@ -123,10 +125,11 @@ class DQN_Agent:
         explore_before_train(self.env, self.replay_buffer, self.explore_step)
         print("==============================start train===================================")
         obs = self.env.reset()
+        done = False
 
         episode_reward = 0
         episode_length = 0
-        q_loss = 0
+        Q_loss = 0
 
         while self.train_step < self.max_train_step:
             action = self.choose_action(np.array(obs))
@@ -138,11 +141,12 @@ class DQN_Agent:
             episode_length += 1
 
             if (self.train_step+1) % self.train_interval == 0:
-                q_loss = self.train()
+                Q_loss = self.train()
 
             if done:
                 self.episode_num += 1
                 obs = self.env.reset()
+                done = False
 
                 print(f"Total T: {self.train_step} Episode Num: {self.episode_num} "
                       f"Episode Length: {episode_length} Episode Reward: {episode_reward:.3f}")
@@ -154,7 +158,7 @@ class DQN_Agent:
 
             if self.train_step % self.log_interval == 0:
                 self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"Q_loss": q_loss}, self.train_step)
+                self.tensorboard_writer.log_train_data({"Q_loss": Q_loss}, self.train_step)
 
             if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
                 avg_reward, avg_length = evaluate(agent=self, episode_num=10)

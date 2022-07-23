@@ -1,7 +1,5 @@
 import sys
 import os
-from pathlib import Path
-# sys.path.append(str(Path(__file__).absolute().parent.parent))
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
@@ -15,26 +13,26 @@ from common.networks import MLPQsaNet, MLPSquashedReparamGaussianPolicy
 from utils import train_tools
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='SAC algorithm in gym environment')
-    parser.add_argument('--env', type=str, default='Pendulum-v0',
+    parser = argparse.ArgumentParser(description='SAC algorithm in mujoco environment')
+    parser.add_argument('--env', type=str, default='Hopper-v2',
                         help='the name of environment')
-    parser.add_argument('--capacity', type=int, default=50000,
+    parser.add_argument('--capacity', type=int, default=1000000,
                         help='the max size of data buffer')
-    parser.add_argument('--batch_size', type=int, default=128,
+    parser.add_argument('--batch_size', type=int, default=256,
                         help='the size of batch that sampled from buffer')
     parser.add_argument('--alpha', type=float, default=0.5,
                         help='the coefficient of entropy')
     parser.add_argument('--auto_alpha_tuning', action='store_true', default=False,
                         help='whether automatic tune alpha')
-    parser.add_argument('--explore_step', type=int, default=2000,
+    parser.add_argument('--explore_step', type=int, default=20000,
                         help='the steps of exploration before train')
-    parser.add_argument('--eval_freq', type=int, default=1000,
+    parser.add_argument('--eval_freq', type=int, default=5000,
                         help='how often (time steps) we evaluate during training, and it will not eval if eval_freq < 0')
-    parser.add_argument('--max_train_step', type=int, default=100000,
+    parser.add_argument('--max_train_step', type=int, default=3000000,
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
-    parser.add_argument('--train_id', type=str, default='sac_gym_test',
+    parser.add_argument('--train_id', type=str, default='sac_mujoco_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
@@ -83,10 +81,10 @@ if __name__ == '__main__':
                       policy_net=policy_net,
                       q_net1=q_net1,  # critic
                       q_net2=q_net2,
-                      policy_lr=4e-3,
-                      qf_lr=4e-3,
+                      policy_lr=3e-4,
+                      qf_lr=3e-4,
                       gamma=0.99,
-                      tau=0.05,
+                      tau=0.005,
                       alpha=args.alpha,
                       auto_alpha_tuning=args.auto_alpha_tuning,
                       explore_step=args.explore_step,
