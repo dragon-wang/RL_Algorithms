@@ -77,6 +77,7 @@ class TrajectoryBuffer:
         self.done[self.ptr] = float(done)
         self.log_probs[self.ptr] = log_prob
         self.values[self.ptr] = value
+        self.ptr += 1
 
     def finish_path(self, last_val=0, gamma=0.99, gae_lambda=0.95, gae_normalize=False):
         """
