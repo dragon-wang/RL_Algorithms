@@ -1,6 +1,6 @@
 # RL_Algorithms
 A lightweight reinforcement learning algorithm library implemented by pytorch
-## supported algorithms
+## Supported algorithms
 
 ### Online RL
 
@@ -11,6 +11,7 @@ Interact with the environment during training.
 | [Deep Q-Network (DQN)](https://storage.googleapis.com/deepmind-media/dqn/DQNNaturePaper.pdf) | ✔                | ⛔                  |
 | [Double DQN (DDQN)](https://arxiv.org/abs/1509.06461)        | ✔                | ⛔                  |
 | [Deep Deterministic Policy Gradients (DDPG)](https://arxiv.org/abs/1509.02971) | ⛔                | ✔                  |
+| [Proximal Policy Optimization (PPO)](https://arxiv.org/abs/1707.06347) | ✔                | ✔                  |
 | [Soft Actor-Critic (SAC)](https://arxiv.org/abs/1812.05905)  | ⛔                | ✔                  |
 | [Twin Delayed Deep Deterministic policy gradient(TD3)](https://arxiv.org/abs/1802.09477) | ⛔                | ✔                  |
 
@@ -21,9 +22,20 @@ Use the existing data set  for training, and there is no interaction with the en
 | algorithm                                                    | discrete control | continuous control |
 | ------------------------------------------------------------ | ---------------- | ------------------ |
 | [Conservative Q-Learning (CQL)](https://arxiv.org/abs/2006.04779) | ✔                | ✔                  |
-| [Batch-Constrained deep Q-learning (BCQ)](https://arxiv.org/abs/1812.02900) |                  | ✔                  |
+| [Batch-Constrained deep Q-learning (BCQ)](https://arxiv.org/abs/1812.02900) | ⛔                | ✔                  |
 | [Policy in the Latent Action Space (PLAS)](https://arxiv.org/abs/2011.07213) | ⛔                | ✔                  |
 | [Bootstrapping Error Accumulation Reduction (BEAR)](https://arxiv.org/abs/1906.00949) | ⛔                | ✔                  |
+
+## To do list
+
+**Online algorithm:**
+
++ [Trust Region Policy Optimization(TRPO)](https://proceedings.mlr.press/v37/schulman15.html)
+
+**Offline algorithm:**
+
++ [Discrete Batch-Constrained deep Q-Learning (BCQ-Discrete)](https://arxiv.org/abs/1910.01708)
++ [TD3-BC](https://arxiv.org/abs/2106.06860)
 
 ## Requirements
 
@@ -61,6 +73,10 @@ python dqn_gym.py --env=CartPole-v0 --train_id=dqn_test
 # train DDPG
 python ddpg_gym.py --env=Pendulum-v0 --train_id=ddpg_Pendulum-v0
 python ddpg_unity.py --train_id=ddpg_unity_test
+
+# train PPO
+python ppo_gym.py --env=CartPole-v0 --train_id=ppo_CartPole-v0
+python ppo_mujoco.py --env=Hopper-v2 --train_id=ppo_Hopper-v2
 
 # train SAC
 python sac_gym.py --env=Pendulum-v0 --train_id=sac_Pendulum-v0  
