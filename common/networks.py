@@ -4,6 +4,7 @@ from torch import nn
 import torch.nn.functional as F
 from typing import Sequence, Type, Optional, List, Union
 from torch.distributions.normal import Normal
+from torch.distributions.categorical import Categorical
 
 
 class MLP(nn.Module):
@@ -19,6 +20,20 @@ class MLP(nn.Module):
     def forward(self, x):
         # x = torch.as_tensor(x, dtype=torch.float32)
         return self.model(x)
+
+
+class MLPVsNet(nn.Module):
+    """
+    PPO V Net
+    Input s, output V(s)
+    """
+    def __init__(self, obs_dim, hidden_size, hidden_activation=nn.Tanh):
+        super(MLPVsNet, self).__init__()
+        self.mlp = MLP(input_dim=obs_dim, output_dim=1,
+                       hidden_size=hidden_size, hidden_activation=hidden_activation)
+
+    def forward(self, obs):
+        return self.mlp(obs)
 
 
 class MLPQsNet(nn.Module):
@@ -73,6 +88,44 @@ class DDPGMLPActor(nn.Module):
         return a
 
 
+class MLPCategoricalActor(nn.Module):
+    def __init__(self, obs_dim, act_num, hidden_size, hidden_activation=nn.Tanh):
+        super(MLPCategoricalActor, self).__init__()
+        self.mlp = MLP(input_dim=obs_dim, output_dim=act_num,
+                       hidden_size=hidden_size, hidden_activation=hidden_activation)
+
+    def forward(self, obs, act=None):
+        logits = self.mlp(obs)
+        dist = Categorical(logits=logits)
+        action = dist.sample() if act is None else act
+        max_prob_action = logits.argmax(dim=1)
+        log_prob = dist.log_prob(action)
+        return action, log_prob, max_prob_action
+
+
+class MLPGaussianActor(nn.Module):
+    def __init__(self, obs_dim, act_dim, hidden_size, hidden_activation=nn.Tanh):
+        super(MLPGaussianActor, self).__init__()
+        self.mlp = MLP(input_dim=obs_dim, output_dim=hidden_size[-1], hidden_size=hidden_size[:-1],
+                       hidden_activation=hidden_activation, output_activation=hidden_activation)
+        self.fc_mu = nn.Linear(hidden_size[-1], act_dim)
+
+        log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+
+    def forward(self, obs, act=None):
+        x = self.mlp(obs)
+        mu = self.fc_mu(x)
+
+        std = torch.exp(self.log_std)
+
+        dist = Normal(mu, std)
+        action = dist.sample() if act is None else act
+        mu_action = mu
+        log_prob = dist.log_prob(action).sum(dim=-1)
+        return action, log_prob, mu_action
+
+
 LOG_STD_MIN = -20
 LOG_STD_MAX = 2
 
@@ -80,7 +133,7 @@ LOG_STD_MAX = 2
 class MLPSquashedReparamGaussianPolicy(nn.Module):
     """
     Policy net. Used in SAC, CQL, BEAR.
-    Input s, output reparameterize, squashed action and log probability of this action
+    Input s, output reparameterized, squashed action and log probability of this action
     """
     def __init__(self, obs_dim, act_dim, act_bound, hidden_size, hidden_activation=nn.ReLU, edge=3e-3):
 
@@ -315,16 +368,9 @@ class EnsembleQNet(nn.Module):
 
 
 if __name__ == '__main__':
-    device = torch.device('cuda')
-    net = EnsembleQNet(10, 6)
+    net = MLPGaussianActor(3,5, [256, 256])
+    obs = torch.tensor([[1,2,10]], dtype=torch.float32)
+    print(net(obs))
 
-    obs = torch.randn(3, 10)
-    act = torch.randn(3, 6)
-    Qs = net(obs, act)
-    print(Qs)
-    #
-    # # print(cat_Qs)
-    print(torch.min(Qs, dim=1)[0])
-    print(torch.mean(Qs, dim=1))
-    # print(sum(Qs)/len(Qs))
-    # print(min(Qs))
+    net2 = MLPCategoricalActor(3, 5, [256, 256])
+    print(net2(obs))
