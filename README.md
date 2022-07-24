@@ -21,10 +21,11 @@ Use the existing data set  for training, and there is no interaction with the en
 
 | algorithm                                                    | discrete control | continuous control |
 | ------------------------------------------------------------ | ---------------- | ------------------ |
-| [Conservative Q-Learning (CQL)](https://arxiv.org/abs/2006.04779) | ✔                | ✔                  |
 | [Batch-Constrained deep Q-learning (BCQ)](https://arxiv.org/abs/1812.02900) | ⛔                | ✔                  |
-| [Policy in the Latent Action Space (PLAS)](https://arxiv.org/abs/2011.07213) | ⛔                | ✔                  |
 | [Bootstrapping Error Accumulation Reduction (BEAR)](https://arxiv.org/abs/1906.00949) | ⛔                | ✔                  |
+| [Policy in the Latent Action Space (PLAS)](https://arxiv.org/abs/2011.07213) | ⛔                | ✔                  |
+| [Conservative Q-Learning (CQL)](https://arxiv.org/abs/2006.04779) | ✔                | ✔                  |
+| [TD3 with behavior cloning(TD3-BC)](https://arxiv.org/abs/2106.06860) | ⛔                | ✔                  |
 
 ## To do list
 
@@ -35,7 +36,8 @@ Use the existing data set  for training, and there is no interaction with the en
 **Offline algorithm:**
 
 + [Discrete Batch-Constrained deep Q-Learning (BCQ-Discrete)](https://arxiv.org/abs/1910.01708)
-+ [TD3-BC](https://arxiv.org/abs/2106.06860)
++ [Behavior Regularized Actor Critic (BRAC)](https://arxiv.org/abs/1911.11361)
++ [Fisher-Behavior Regularized Critic(Fisher-BRC)](https://arxiv.org/abs/2103.08050)
 
 ## Requirements
 
