@@ -66,7 +66,8 @@ def evaluate(agent, episode_num, seed_offset=100, show=False):
     print("=====> evaluate {} episode <===> average step length: {:.2f} <===> average reward: {:.2f} <=====".format(episode_num, avg_length, avg_reward))
     print("---------------------------------------------------------------------------------------------------")
 
-    return avg_reward, avg_length
+    evaluate_summaries = {"eval_episode_length": avg_length, "eval_episode_reward": avg_reward}
+    return evaluate_summaries
 
 
 def evaluate_unity(agent, episode_num):

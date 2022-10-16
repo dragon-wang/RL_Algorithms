@@ -88,24 +88,31 @@ if __name__ == '__main__':
                                      capacity=args.capacity,
                                      batch_size=args.batch_size)
 
-    agent = SAC_Agent(env,
-                      replay_buffer=replay_buffer,
-                      policy_net=policy_net,
-                      q_net1=q_net1,  # critic
-                      q_net2=q_net2,
-                      policy_lr=3e-4,
-                      qf_lr=3e-4,
-                      gamma=0.99,
-                      tau=0.005,
-                      alpha=args.alpha,
-                      auto_alpha_tuning=args.auto_alpha_tuning,
-                      explore_step=args.explore_step,
-                      eval_freq=-1,
-                      max_train_step=args.max_train_step,
-                      train_id=args.train_id,
-                      log_interval=args.log_interval,
-                      resume=args.resume,
-                      device=args.device)
+    agent = SAC_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
+
+        # Parameters of OffPolicyBase
+        replay_buffer=replay_buffer,
+        explore_step=args.explore_step,
+
+        # Parameters of SAC_Agent
+        policy_net=policy_net,
+        q_net1=q_net1,  # critic
+        q_net2=q_net2,
+        policy_lr=3e-4,
+        qf_lr=3e-4,
+        tau=0.005,
+        alpha=args.alpha,
+        auto_alpha_tuning=args.auto_alpha_tuning,
+        )
 
     if args.show:
         train_tools.evaluate_unity(agent, 10)
