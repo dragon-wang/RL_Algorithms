@@ -23,7 +23,7 @@ if __name__ == '__main__':
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
-    parser.add_argument('--train_id', type=str, default='td3bc_hopper-medium-v0_test',
+    parser.add_argument('--train_id', type=str, default='td3bc_mujoco_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
@@ -68,22 +68,29 @@ if __name__ == '__main__':
         data_buffer = OfflineBuffer(data=data, batch_size=args.batch_size)
 
     # create agent
-    agent = TD3_BC_Agent(env=env, replay_buffer=data_buffer,
-                         actor_net=actor_net, critic_net1=critic_net1, critic_net2=critic_net2,
-                         actor_lr=3e-4, critic_lr=3e-4,
-                         gamma=0.99,
-                         tau=0.005,
-                         policy_noise=0.2,
-                         noise_clip=0.5,
-                         policy_delay=2,
-                         alpha=2.5,
-                         eval_freq=args.eval_freq,
-                         max_train_step=args.max_train_step,
-                         train_id=args.train_id,
-                         log_interval=args.log_interval,
-                         resume=args.resume,
-                         device=args.device
-                       )
+    agent = TD3_BC_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
+
+        # Parameters of OfflineBase
+        data_buffer=data_buffer,
+
+        # Parameters of TD3BC_Agent
+        actor_net=actor_net, critic_net1=critic_net1, critic_net2=critic_net2,
+        actor_lr=3e-4, critic_lr=3e-4,
+        tau=0.005,
+        policy_noise=0.2,
+        noise_clip=0.5,
+        policy_delay=2,
+        alpha=2.5,
+        )
 
     if args.show:
         train_tools.evaluate(agent, 10, show=True)

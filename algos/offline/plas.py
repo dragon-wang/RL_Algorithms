@@ -1,21 +1,18 @@
 import copy
-import os
 import torch
 import torch.nn.functional as F
-from common.buffers import OfflineBuffer
+from algos.base import OfflineBase
 from common.networks import MLPQsaNet, CVAE, PLAS_Actor
 from utils.train_tools import soft_target_update, evaluate
 from utils import log_tools
 
 
-class PLAS_Agent:
+class PLAS_Agent(OfflineBase):
     """
     Implementation of Policy in the Latent Action Space(PLAS) in continuous action space
     https://arxiv.org/abs/2011.07213
     """
     def __init__(self,
-                 env,
-                 data_buffer: OfflineBuffer,
                  critic_net1: MLPQsaNet,
                  critic_net2: MLPQsaNet,
                  actor_net: PLAS_Actor,
@@ -23,22 +20,12 @@ class PLAS_Agent:
                  critic_lr=1e-3,
                  actor_lr=1e-4,
                  cvae_lr=1e-4,
-
-                 gamma=0.99,
                  tau=0.005,
                  lmbda=0.75,  # used for double clipped double q-learning
-
                  max_cvae_iterations=500000,  # the num of iterations when training CVAE model
-                 max_train_step=2000000,
-                 log_interval=1000,
-                 eval_freq=5000,
-                 train_id="plas_test",
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu',
+                 **kwargs
                  ):
-        self.env = env
-        self.data_buffer = data_buffer
-        self.device = torch.device(device)
+        super().__init__(**kwargs)
 
         self.critic_net1 = critic_net1.to(self.device)
         self.critic_net2 = critic_net2.to(self.device)
@@ -52,25 +39,11 @@ class PLAS_Agent:
         self.actor_optimizer = torch.optim.Adam(self.actor_net.parameters(), lr=actor_lr)
         self.cvae_optimizer = torch.optim.Adam(self.cvae_net.parameters(), lr=cvae_lr)
 
-        self.gamma = gamma
         self.tau = tau
         self.lmbda = lmbda
-
         self.max_cvae_iterations = max_cvae_iterations
-        self.max_train_step = max_train_step
-        self.eval_freq = eval_freq
         self.cvae_iterations= 0
-        self.train_step = 0
-
-        self.resume = resume  # whether load checkpoint start train from last time
-
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
-
+        
     def choose_action(self, obs, eval=True):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
@@ -95,7 +68,9 @@ class PLAS_Agent:
 
         self.cvae_iterations += 1
 
-        return cvae_loss.cpu().item()
+        train_summaries = {"cvae_loss": cvae_loss.cpu().item()}
+
+        return train_summaries
 
     def train(self):
         # Sample
@@ -148,10 +123,17 @@ class PLAS_Agent:
 
         self.train_step += 1
 
-        return critic_loss.cpu().item(), actor_loss.cpu().item()
+        train_summaries = {"actor_loss": actor_loss.cpu().item(),
+                           "critic_loss": critic_loss.cpu().item()}
+
+        return train_summaries
 
     def learn(self):
         """Train PLAS without interacting with the environment (offline)"""
+
+        log_tools.make_dir(self.result_dir)
+        tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
+
         if self.resume:
             self.load_agent_checkpoint()
         else:
@@ -161,27 +143,24 @@ class PLAS_Agent:
         # Train CVAE before train agent
         print("==============================Start to train CVAE==============================")
 
-        while self.cvae_iterations < (int(self.max_cvae_iterations)):
-            cvae_loss = self.train_cvae()
+        while self.cvae_iterations < self.max_cvae_iterations:
+            train_summaries_cvae = self.train_cvae()
             if self.cvae_iterations % 1000 == 0:
-                print("CVAE iteration:", self.cvae_iterations, "\t", "CVAE Loss:", cvae_loss)
-                self.tensorboard_writer.log_train_data({"cvae_loss": cvae_loss}, self.cvae_iterations)
+                print("CVAE iteration:", self.cvae_iterations, "\t", "CVAE Loss:", train_summaries_cvae["cvae_loss"])
+                tensorboard_writer.log_train_data(train_summaries_cvae, self.cvae_iterations)
 
         # Train Agent
         print("==============================Start to train Agent==============================")
-        while self.train_step < (int(self.max_train_step)):
-            critic_loss, actor_loss = self.train()
-
-            if self.train_step % self.eval_freq == 0:
-                if self.train_step % self.eval_freq == 0:
-                    avg_reward, avg_length = evaluate(agent=self, episode_num=10)
-                    self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                           "eval_episode_reward": avg_reward}, self.train_step)
+        while self.train_step < self.max_train_step:
+            train_summaries = self.train()
 
             if self.train_step % self.log_interval == 0:
                 self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"critic_loss": critic_loss,
-                                                        "actor_loss": actor_loss}, self.train_step)
+                tensorboard_writer.log_train_data(train_summaries, self.train_step)
+
+            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
+                evaluate_summaries = evaluate(agent=self, episode_num=10)
+                tensorboard_writer.log_eval_data(evaluate_summaries, self.train_step)
 
     def store_agent_checkpoint(self):
         checkpoint = {

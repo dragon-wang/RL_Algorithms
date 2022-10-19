@@ -24,6 +24,9 @@ class PolicyBase(ABC):
         self.log_interval = log_interval
         self.resume = resume
         self.device = torch.device(device)
+
+        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", self.train_id)
+        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
     
     @abstractmethod
     def choose_action(self, obs, eval=False):
@@ -73,9 +76,6 @@ class OffPolicyBase(PolicyBase):
 
         self.train_step = 0
         self.episode_num = 0
-
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", self.train_id)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
 
     def choose_action(self, obs, eval=False):
         raise NotImplementedError
@@ -138,6 +138,46 @@ class OffPolicyBase(PolicyBase):
         raise NotImplementedError
 
 
-class OfflineBase(OffPolicyBase):
-    pass
-    
+class OfflineBase(PolicyBase):
+    def __init__(self, data_buffer, **kwargs):
+        super().__init__(**kwargs)
+        self.data_buffer = data_buffer
+        self.train_step = 0
+
+    def choose_action(self, obs, eval=True):
+        """In offline settings, 
+        since the agent does not interact with the environment during training, 
+        this function is only used during evaluation.
+        """
+        raise NotImplementedError
+
+    def train(self):
+        raise NotImplementedError
+
+    def learn(self):
+        # Make the directory to save the training results that consist of checkpoint files and tensorboard files
+        log_tools.make_dir(self.result_dir)
+        tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
+
+        if self.resume:
+            self.load_agent_checkpoint()
+        else:
+            # delete tensorboard log file
+            log_tools.del_all_files_in_dir(self.result_dir)
+
+        while self.train_step < self.max_train_step:
+            train_summaries = self.train()
+
+            if self.train_step % self.log_interval == 0:
+                self.store_agent_checkpoint()
+                tensorboard_writer.log_train_data(train_summaries, self.train_step)
+
+            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
+                evaluate_summaries = evaluate(agent=self, episode_num=10)
+                tensorboard_writer.log_eval_data(evaluate_summaries, self.train_step)
+
+    def store_agent_checkpoint(self):
+        raise NotImplementedError
+
+    def load_agent_checkpoint(self):
+        raise NotImplementedError

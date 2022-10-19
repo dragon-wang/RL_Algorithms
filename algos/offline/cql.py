@@ -1,28 +1,23 @@
 import copy
-import os
 import numpy as np
 import torch
 import torch.nn.functional as F
-from common.buffers import OfflineBuffer
-from utils.train_tools import soft_target_update, evaluate, hard_target_update
-from utils import log_tools
+from algos.base import OfflineBase
+from utils.train_tools import soft_target_update, hard_target_update
 
 
-class CQL_Agent:
+class CQL_Agent(OfflineBase):
     """
     Implementation of Conservative Q-Learning for Offline Reinforcement Learning (CQL)
     https://arxiv.org/abs/2006.04779
     This is CQL based on SAC, which is suitable for continuous action space.
     """
     def __init__(self,
-                 env,
-                 data_buffer: OfflineBuffer,
                  policy_net: torch.nn.Module,  # actor
                  q_net1: torch.nn.Module,  # critic
                  q_net2: torch.nn.Module,
                  policy_lr=3e-4,
                  qf_lr=3e-4,
-                 gamma=0.99,
                  tau=0.05,
                  alpha=0.5,
                  auto_alpha_tuning=False,
@@ -34,20 +29,10 @@ class CQL_Agent:
                  with_lagrange=False,  # whether auto tune alpha in Conservative Q Loss(different from the alpha in sac)
                  lagrange_thresh=0.0,  # the hyper-parameter used in automatic tuning alpha in cql loss
                  n_action_samples=10,  # the number of action sampled in importance sampling
-
-                 max_train_step=2000000,
-                 log_interval=1000,
-                 eval_freq=5000,
-                 train_id="cql_hopper-medium-v2_test",
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu',
+                 **kwargs
                  ):
-
-        self.env = env
-        self.data_buffer = data_buffer
-
-        self.device = torch.device(device)
-
+        super().__init__(**kwargs)
+        
         # the network and optimizers
         self.policy_net = policy_net.to(self.device)
         self.q_net1 = q_net1.to(self.device)
@@ -58,7 +43,6 @@ class CQL_Agent:
         self.q_optimizer1 = torch.optim.Adam(self.q_net1.parameters(), lr=qf_lr)
         self.q_optimizer2 = torch.optim.Adam(self.q_net2.parameters(), lr=qf_lr)
 
-        self.gamma = gamma
         self.tau = tau
         self.alpha = alpha
         self.auto_alpha_tuning = auto_alpha_tuning
@@ -68,12 +52,6 @@ class CQL_Agent:
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=policy_lr)
             self.alpha = torch.exp(self.log_alpha)
-
-        self.max_train_step = max_train_step
-        self.eval_freq = eval_freq
-        self.train_step = 0
-
-        self.resume = resume  # whether load checkpoint start train from last time
 
         # CQL
         self.min_q_weight = min_q_weight
@@ -86,13 +64,6 @@ class CQL_Agent:
         if self.with_lagrange:
             self.log_alpha_prime = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha_prime_optimizer = torch.optim.Adam([self.log_alpha_prime], lr=qf_lr)
-
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
 
     def choose_action(self, obs, eval=True):
         with torch.no_grad():
@@ -247,32 +218,14 @@ class CQL_Agent:
         soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
 
         self.train_step += 1
+        
+        train_summaries = {"actor_loss": policy_loss.cpu().item(),
+                           "critic_loss1": q_loss1.cpu().item(),
+                           "critic_loss2": q_loss2.cpu().item(),
+                           "alpha_loss": alpha_loss.cpu().item(),
+                           "alpha_prime_loss": alpha_prime_loss.cpu().item()}
 
-        return q_loss1.cpu().item(), q_loss2.cpu().item(), policy_loss.cpu().item(), alpha_loss.cpu().item(), alpha_prime_loss.cpu().item()
-
-    def learn(self):
-        if self.resume:
-            self.load_agent_checkpoint()
-        else:
-            # delete tensorboard log file
-            log_tools.del_all_files_in_dir(self.result_dir)
-
-        while self.train_step < (int(self.max_train_step)):
-            # train
-            q_loss1, q_loss2, policy_loss, alpha_loss, alpha_prime_loss = self.train()
-
-            if self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
-                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                       "eval_episode_reward": avg_reward}, self.train_step)
-
-            if self.train_step % self.log_interval == 0:
-                self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"q_loss_1": q_loss1,
-                                                        "q_loss_2": q_loss2,
-                                                        "policy_loss": policy_loss,
-                                                        "alpha_loss": alpha_loss,
-                                                        "alpha_prime_loss": alpha_prime_loss}, self.train_step)
+        return train_summaries
 
     def store_agent_checkpoint(self):
         checkpoint = {
@@ -315,65 +268,31 @@ class CQL_Agent:
               "\" at " + str(self.train_step) + " time step")
 
 
-class DiscreteCQL_Agent:
+class DiscreteCQL_Agent(OfflineBase):
     """
     This is CQL based on Double DQN, which is suitable for discrete action space.
     Note that in the paper, the discrete CQL is based on QRDQN.
     """
 
     def __init__(self,
-                 env,
-                 data_buffer,
                  Q_net: torch.nn.Module,
                  qf_lr=0.001,
-                 gamma=0.99,
                  eval_eps=0.001,
                  target_update_freq=8000,
-                 train_interval: int = 1,
-
-                 # CQL
                  min_q_weight=5.0,  # the value of alpha in CQL loss, set to 5.0 or 10.0 if not using lagrange
-
-                 max_train_step=2000000,
-                 log_interval=1000,
-                 eval_freq=5000,
-                 train_id="sac_Pendulum_test",
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu',
+                 **kwargs
                  ):
-
-        self.env = env
-        self.data_buffer = data_buffer
-
-        self.max_train_step = max_train_step
-        self.train_interval = train_interval
-        self.target_update_freq = target_update_freq
-
-        self.device = torch.device(device)
+        super().__init__(**kwargs)
 
         self.Q_net = Q_net.to(self.device)
         self.target_Q_net = copy.deepcopy(self.Q_net).to(self.device)
         self.optimizer = torch.optim.Adam(self.Q_net.parameters(), lr=qf_lr)
 
+        self.eval_eps = eval_eps
+        self.target_update_freq = target_update_freq
         self.min_q_weight= min_q_weight
 
-        self.eval_eps = eval_eps
-
-        self.gamma = gamma
-        self.train_step = 0
-        self.eval_freq = eval_freq
-
-        self.resume = resume  # whether load checkpoint start train from last time
-
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
-
     def choose_action(self, obs, eval=True):
-
         if np.random.uniform(0, 1) > self.eval_eps:
             with torch.no_grad():
                 obs = torch.FloatTensor(obs).unsqueeze(0).to(self.device)
@@ -407,8 +326,8 @@ class DiscreteCQL_Agent:
         current_Q = self.Q_net(obs).gather(1, acts.long()).squeeze(1)
 
         # Compute DDQN Q loss
-        Q_loss = 0.5 * (target_Q - current_Q).pow(2).mean()
-        # Q_loss = F.mse_loss(current_Q, target_Q)
+        q_loss = 0.5 * (target_Q - current_Q).pow(2).mean()
+        # q_loss = F.mse_loss(current_Q, target_Q)
 
         """
         Compute CQL Loss
@@ -422,11 +341,11 @@ class DiscreteCQL_Agent:
         data_Q = self.Q_net(obs).gather(1, acts.long()).squeeze(1)
 
         min_qf_loss = self.min_q_weight * (logsumexp - data_Q).mean()
-        Q_loss = min_qf_loss + Q_loss
+        q_loss = min_qf_loss + q_loss
 
         # Optimize the Q network
         self.optimizer.zero_grad()
-        Q_loss.backward()
+        q_loss.backward()
         self.optimizer.step()
 
         # update target Q
@@ -434,27 +353,10 @@ class DiscreteCQL_Agent:
             hard_target_update(self.Q_net, self.target_Q_net)
 
         self.train_step += 1
+        
+        train_summaries = {"q_loss": q_loss.cpu().item()}
 
-        return Q_loss.cpu().item()
-
-    def learn(self):
-        if self.resume:
-            self.load_agent_checkpoint()
-        else:
-            # delete tensorboard log file
-            log_tools.del_all_files_in_dir(self.result_dir)
-
-        while self.train_step < (int(self.max_train_step)):
-            # train
-            q_loss = self.train()
-            if self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=5)
-                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                       "eval_episode_reward": avg_reward}, self.train_step)
-
-            if self.train_step % self.log_interval == 0:
-                self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"q_loss": q_loss}, self.train_step)
+        return train_summaries
 
     def store_agent_checkpoint(self):
         checkpoint = {
