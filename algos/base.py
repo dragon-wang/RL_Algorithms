@@ -25,6 +25,8 @@ class PolicyBase(ABC):
         self.resume = resume
         self.device = torch.device(device)
 
+        self.train_step = 0
+
         self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", self.train_id)
         self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
     
@@ -74,7 +76,6 @@ class OffPolicyBase(PolicyBase):
         self.replay_buffer = replay_buffer
         self.explore_step = explore_step
 
-        self.train_step = 0
         self.episode_num = 0
 
     def choose_action(self, obs, eval=False):
@@ -116,8 +117,8 @@ class OffPolicyBase(PolicyBase):
                 self.episode_num += 1
                 obs = self.env.reset()
             
-                print(f"Episode Num: {self.episode_num} Episode Length: {episode_length} "
-                      f"Episode Reward: {episode_reward:.2f} Time Step: {self.train_step}")
+                print(f"Time Step: {self.train_step} Episode Num: {self.episode_num}"
+                      f"Episode Length: {episode_length} Episode Reward: {episode_reward:.2f}")
                 tensorboard_writer.log_learn_data({"episode_length": episode_length,
                                                    "episode_reward": episode_reward}, self.train_step)
                 episode_reward = 0
@@ -142,7 +143,6 @@ class OfflineBase(PolicyBase):
     def __init__(self, data_buffer, **kwargs):
         super().__init__(**kwargs)
         self.data_buffer = data_buffer
-        self.train_step = 0
 
     def choose_action(self, obs, eval=True):
         """In offline settings, 
