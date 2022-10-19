@@ -111,9 +111,9 @@ class SAC_Agent(OffPolicyBase):
         soft_target_update(self.q_net1, self.target_q_net1, tau=self.tau)
         soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
 
-        train_summaries = {"q_loss1": q_loss1.cpu().item(),
-                           "q_loss2": q_loss2.cpu().item(),
-                           "policy_loss": policy_loss.cpu().item(),
+        train_summaries = {"actor_loss": policy_loss.cpu().item(),
+                           "critic_loss1": q_loss1.cpu().item(),
+                           "critic_loss2": q_loss2.cpu().item(),
                            "alpha_loss": alpha_loss.cpu().item()}
 
         return train_summaries
