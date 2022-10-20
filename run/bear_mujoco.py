@@ -14,7 +14,7 @@ from utils import train_tools, data_tools
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CQL algorithm in mujoco environment')
-    parser.add_argument('--env', type=str, default='hopper-medium-v2',
+    parser.add_argument('--env', type=str, default='hopper-medium-v0',
                         help='the name of environment')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='the size of batch that sampled from buffer')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
-    parser.add_argument('--train_id', type=str, default='bear_hopper-medium-v2_test',
+    parser.add_argument('--train_id', type=str, default='bear_hopper-mujoco_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
@@ -78,35 +78,38 @@ if __name__ == '__main__':
         data = data_tools.get_d4rl_dataset(env)
         data_buffer = OfflineBuffer(data=data, batch_size=args.batch_size)
 
-    agent = BEAR_Agent(env=env,
-                       data_buffer=data_buffer,
-                       policy_net=policy_net,
-                       q_net1=q_net1,
-                       q_net2=q_net2,
-                       cvae_net=cvae_net,
-                       policy_lr=1e-4,
-                       qf_lr=3e-4,
-                       cvae_lr=3e-4,
-                       gamma=0.99,
-                       tau=0.05,
+    agent = BEAR_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
 
-                       # BEAR
-                       lmbda=0.75,
-                       mmd_sigma=args.mmd_sigma,
-                       kernel_type=args.kernel_type,
-                       lagrange_thresh=args.lagrange_thresh,
-                       n_action_samples=100,
-                       n_target_samples=10,
-                       n_mmd_action_samples=4,
-                       warmup_step=40000,
+        # Parameters of OfflineBase
+        data_buffer=data_buffer,
 
-                       max_train_step=args.max_train_step,
-                       log_interval=args.log_interval,
-                       eval_freq=args.eval_freq,
-                       train_id=args.train_id,
-                       resume=args.resume,  # if True, train from last checkpoint
-                       device=args.device,
-                       )
+        # Parameters of BEAR_Agent
+        policy_net=policy_net,
+        q_net1=q_net1,
+        q_net2=q_net2,
+        cvae_net=cvae_net,
+        policy_lr=1e-4,
+        qf_lr=3e-4,
+        cvae_lr=3e-4,
+        tau=0.05,
+        lmbda=0.75,
+        mmd_sigma=args.mmd_sigma,
+        kernel_type=args.kernel_type,
+        lagrange_thresh=args.lagrange_thresh,
+        n_action_samples=100,
+        n_target_samples=10,
+        n_mmd_action_samples=4,
+        warmup_step=40000,
+        )
     if args.show:
         train_tools.evaluate(agent, 10, show=True)
     else:

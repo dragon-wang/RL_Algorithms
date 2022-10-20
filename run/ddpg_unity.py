@@ -82,21 +82,27 @@ if __name__ == '__main__':
                                      capacity=args.capacity,
                                      batch_size=args.batch_size)
 
-    # create agent
-    agent = DDPG_Agent(env=env, replay_buffer=replay_buffer,
-                       actor_net=actor_net, critic_net=critic_net,
-                       actor_lr=1e-4, critic_lr=1e-3,
-                       gamma=0.99,
-                       tau=0.005,
-                       gaussian_noise_sigma=0.1,
-                       explore_step=args.explore_step,
-                       eval_freq=-1,
-                       max_train_step=args.max_train_step,
-                       train_id=args.train_id,
-                       log_interval=args.log_interval,
-                       resume=args.resume,
-                       device=args.device
-                       )
+    agent = DDPG_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
+
+        # Parameters of OffPolicyBase
+        replay_buffer=replay_buffer,
+        explore_step=args.explore_step,
+
+        # Parameters of DDPG_Agent
+        actor_net=actor_net, critic_net=critic_net,
+        actor_lr=1e-4, critic_lr=1e-3,
+        tau=0.005,
+        gaussian_noise_sigma=0.1,
+        )
 
     if args.show:
         train_tools.evaluate_unity(agent, 10)

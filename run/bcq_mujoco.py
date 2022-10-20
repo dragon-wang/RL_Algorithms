@@ -15,7 +15,7 @@ from utils import train_tools, data_tools
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='BCQ algorithm in mujoco environment')
-    parser.add_argument('--env', type=str, default='hopper-medium-v2',
+    parser.add_argument('--env', type=str, default='hopper-medium-v0',
                         help='the name of environment')
     parser.add_argument('--batch_size', type=int, default=100,
                         help='the size of batch that sampled from buffer')
@@ -24,7 +24,7 @@ if __name__ == '__main__':
                         help='the max train step')
     parser.add_argument('--log_interval', type=int, default=1000,
                         help='The number of steps taken to record the model and the tensorboard')
-    parser.add_argument('--train_id', type=str, default='bcq_hopper-medium-v2_test',
+    parser.add_argument('--train_id', type=str, default='bcq_mujoco_test',
                         help='Path to save model and log tensorboard')
     parser.add_argument('--resume', action='store_true', default=False,
                         help='whether load the last saved model to train')
@@ -71,27 +71,31 @@ if __name__ == '__main__':
         data = data_tools.get_d4rl_dataset(env)
         data_buffer = OfflineBuffer(data=data, batch_size=args.batch_size)
 
-    agent = BCQ_Agent(env=env,
-                      data_buffer=data_buffer,
-                      critic_net1=critic_net1,
-                      critic_net2=critic_net2,
-                      perturbation_net=perturbation_net,
-                      cvae_net=cvae_net,  # generation model
-                      critic_lr=1e-3,
-                      per_lr=1e-3,
-                      cvae_lr=1e-3,
+    agent = BCQ_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
 
-                      gamma=0.99,
-                      tau=0.005,
-                      lmbda=0.75,  # used for double clipped double q-learning
+        # Parameters of OfflineBase
+        data_buffer=data_buffer,
 
-                      max_train_step=args.max_train_step,
-                      log_interval=args.log_interval,
-                      eval_freq=args.eval_freq,
-                      train_id=args.train_id,
-                      resume=args.resume,  # if True, train from last checkpoint
-                      device=args.device
-                      )
+        # Parameters of BCQ_Agent
+        critic_net1=critic_net1,
+        critic_net2=critic_net2,
+        perturbation_net=perturbation_net,
+        cvae_net=cvae_net,  # generation model
+        critic_lr=1e-3,
+        per_lr=1e-3,
+        cvae_lr=1e-3,
+        tau=0.005,
+        lmbda=0.75,  # used for double clipped double q-learning              
+        )
 
     if args.show:
         train_tools.evaluate(agent, 10, show=True)

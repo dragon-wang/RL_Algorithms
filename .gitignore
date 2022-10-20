@@ -1,6 +1,6 @@
-
 .idea/
 
+__pycache__/
 *.pyc
 
 test/
@@ -11,5 +11,3 @@ test/
 /run/results/
 
 /algos/experiments
-
-/algos/PRBM

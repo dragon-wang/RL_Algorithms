@@ -1,15 +1,12 @@
 import copy
-import os
-import numpy as np
 import torch
 import torch.nn.functional as F
-from common.buffers import OfflineBuffer
-from utils.train_tools import soft_target_update, evaluate
-from utils import log_tools
+from algos.base import OfflineBase
+from utils.train_tools import soft_target_update
 from common.networks import MLPSquashedReparamGaussianPolicy, CVAE, MLPQsaNet
 
 
-class BEAR_Agent:
+class BEAR_Agent(OfflineBase):
     """
     Implementation of Bootstrapping Error Accumulation Reduction (BEAR)
     https://arxiv.org/abs/1906.00949
@@ -20,8 +17,6 @@ class BEAR_Agent:
     Alpha_prime Loss: -(alpha_prime * (MMD Loss - threshold))
     """
     def __init__(self,
-                 env,
-                 data_buffer: OfflineBuffer,
                  policy_net: MLPSquashedReparamGaussianPolicy,  # actor
                  q_net1: MLPQsaNet,  # critic
                  q_net2: MLPQsaNet,
@@ -29,7 +24,6 @@ class BEAR_Agent:
                  policy_lr=1e-4,
                  qf_lr=3e-4,
                  cvae_lr=3e-4,
-                 gamma=0.99,
                  tau=0.05,
 
                  # BEAR
@@ -41,20 +35,10 @@ class BEAR_Agent:
                  n_target_samples=10,  # the number of action samples to compute BCQ-like target value
                  n_mmd_action_samples=4,  # the number of action samples to compute MMD.
                  warmup_step=40000,  # do support matching with a warm start before policy(actor) train
-
-                 max_train_step=1000000,
-                 log_interval=1000,
-                 eval_freq=5000,
-                 train_id="bear_hopper-medium-v2_test",
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu',
+                 **kwargs
                  ):
-
-        self.env = env
-        self.data_buffer = data_buffer
-
-        self.device = torch.device(device)
-
+        super().__init__(**kwargs)
+        
         # the network and optimizers
         self.policy_net = policy_net.to(self.device)
         self.q_net1 = q_net1.to(self.device)
@@ -67,16 +51,8 @@ class BEAR_Agent:
         self.q_optimizer2 = torch.optim.Adam(self.q_net2.parameters(), lr=qf_lr)
         self.cvae_optimizer = torch.optim.Adam(self.cvae_net.parameters(), lr=cvae_lr)
 
-        self.gamma = gamma
         self.tau = tau
 
-        self.max_train_step = max_train_step
-        self.eval_freq = eval_freq
-        self.train_step = 0
-
-        self.resume = resume  # whether load checkpoint start train from last time
-
-        # BEAR
         self.lmbda = lmbda
         self.mmd_sigma = mmd_sigma
         self.kernel_type = kernel_type
@@ -90,14 +66,7 @@ class BEAR_Agent:
         self.log_alpha_prime = torch.zeros(1, requires_grad=True, device=self.device)
         self.alpha_prime_optimizer = torch.optim.Adam([self.log_alpha_prime], lr=1e-3)
 
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
-
-    def choose_action(self, obs, eval=False):
+    def choose_action(self, obs, eval=True):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).reshape(1, -1).repeat(self.n_action_samples, 1).to(self.device)
             action, _, _ = self.policy_net(obs)
@@ -227,30 +196,12 @@ class BEAR_Agent:
 
         self.train_step += 1
 
-        return critic_loss1.cpu().item(), critic_loss2.cpu().item(), policy_loss.cpu().item(), alpha_prime_loss.cpu().item()
+        train_summaries = {"actor_loss": policy_loss.cpu().item(),
+                           "critic_loss1": critic_loss1.cpu().item(),
+                           "critic_loss2": critic_loss2.cpu().item(),
+                           "alpha_prime_loss": alpha_prime_loss.cpu().item()}
 
-    def learn(self):
-        if self.resume:
-            self.load_agent_checkpoint()
-        else:
-            # delete tensorboard log file
-            log_tools.del_all_files_in_dir(self.result_dir)
-
-        while self.train_step < (int(self.max_train_step)):
-            # train
-            q_loss1, q_loss2, actor_loss, alpha_prime_loss = self.train()
-
-            if self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
-                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                       "eval_episode_reward": avg_reward}, self.train_step)
-
-            if self.train_step % self.log_interval == 0:
-                self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"q_loss_1": q_loss1,
-                                                        "q_loss_2": q_loss2,
-                                                        "actor_loss": actor_loss,
-                                                        "alpha_prime_loss": alpha_prime_loss}, self.train_step)
+        return train_summaries
 
     def store_agent_checkpoint(self):
         checkpoint = {

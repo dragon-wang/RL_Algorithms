@@ -1,48 +1,32 @@
 import copy
-import os
-import numpy as np
 import torch
 import torch.nn.functional as F
-from common.buffers import OfflineBuffer
-from utils.train_tools import soft_target_update, evaluate
-from utils import log_tools
+from algos.base import OfflineBase
+from utils.train_tools import soft_target_update
 
 
-class TD3_BC_Agent:
+class TD3_BC_Agent(OfflineBase):
     """
     Implementation of TD3 with behavior cloning (TD3_BC)
     https://arxiv.org/abs/2106.06860
     """
     def __init__(self,
-                 env,
-                 replay_buffer: OfflineBuffer,
                  actor_net: torch.nn.Module,
                  critic_net1: torch.nn.Module,
                  critic_net2: torch.nn.Module,
                  actor_lr=3e-4,
                  critic_lr=3e-4,
-
-                 gamma=0.99,
                  tau=0.005,  # used to update target network, w' = tau*w + (1-tau)*w'
                  policy_noise=0.2,  # Noise added to target policy during critic update
                  noise_clip=0.5,  # Range to clip target policy noise
                  policy_delay=2,  # Frequency of delayed policy updates
                  alpha=2.5,  # The alpha to compute lambda
-
-                 max_train_step=1000000,
-                 log_interval=1000,
-                 eval_freq=5000,
-                 train_id="td3bc_test",
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu',
+                 **kwargs
                  ):
+        super().__init__(**kwargs)
 
-        self.env = env
-        self.action_num = env.action_space.shape[0]
-        self.action_bound = env.action_space.high[0]
-        self.replay_buffer = replay_buffer
-
-        self.device = torch.device(device)
+        self.action_num = self.env.action_space.shape[0]
+        self.action_bound = self.env.action_space.high[0]
 
         # the network and optimizers
         self.actor_net = actor_net.to(self.device)
@@ -56,7 +40,6 @@ class TD3_BC_Agent:
         self.critic_optimizer1 = torch.optim.Adam(self.critic_net1.parameters(), lr=critic_lr)
         self.critic_optimizer2 = torch.optim.Adam(self.critic_net2.parameters(), lr=critic_lr)
 
-        self.gamma = gamma
         self.tau = tau
         self.policy_noise = policy_noise
         self.noise_clip = noise_clip
@@ -64,20 +47,8 @@ class TD3_BC_Agent:
         self.alpha = alpha
 
         self.actor_loss = 0
-        self.eval_freq = eval_freq
-        self.max_train_step = max_train_step
-        self.train_step = 0
 
-        self.resume = resume  # whether load checkpoint start train from last time
-
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
-
-    def choose_action(self, obs, eval=False):
+    def choose_action(self, obs, eval=True):
         """Choose an action by deterministic policy with some gaussian noise"""
         obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
         with torch.no_grad():
@@ -87,7 +58,7 @@ class TD3_BC_Agent:
     def train(self):
 
         # Sample
-        batch = self.replay_buffer.sample()
+        batch = self.data_buffer.sample()
         obs = batch["obs"].to(self.device)
         acts = batch["acts"].to(self.device)
         rews = batch["rews"].to(self.device)
@@ -142,30 +113,11 @@ class TD3_BC_Agent:
 
         self.train_step += 1
 
-        return actor_loss.cpu().item(), critic_loss1.cpu().item(), critic_loss2.cpu().item()
+        train_summaries = {"actor_loss": actor_loss.cpu().item(),
+                           "critic_loss1": critic_loss1.cpu().item(),
+                           "critic_loss2": critic_loss2.cpu().item()}
 
-    def learn(self):
-        """Train TD3_BC without interacting with the environment (offline)"""
-        if self.resume:
-            self.load_agent_checkpoint()
-        else:
-            # delete tensorboard log file
-            log_tools.del_all_files_in_dir(self.result_dir)
-
-        while self.train_step < (int(self.max_train_step)):
-            actor_loss, critic_loss1, critic_loss2 = self.train()
-
-            if self.train_step % self.log_interval == 0:
-                self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"actor_loss": actor_loss,
-                                                        "critic_loss1": critic_loss1,
-                                                        "critic_loss2": critic_loss2
-                                                        }, self.train_step)
-
-            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
-                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                       "eval_episode_reward": avg_reward}, self.train_step)
+        return train_summaries
 
     def store_agent_checkpoint(self):
         checkpoint = {

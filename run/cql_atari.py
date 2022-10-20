@@ -63,28 +63,29 @@ if __name__ == '__main__':
         data = data_tools.get_d4rl_dataset_atari(env)
         data_buffer = OfflineBufferAtari(data=data, batch_size=args.batch_size)
 
-    agent = DiscreteCQL_Agent(env=env,
-                              data_buffer=data_buffer,
-                              Q_net=Q_net,
-                              qf_lr=1e-4,
-                              gamma=0.99,
-                              eval_eps=0.001,
-                              target_update_freq=8000,
-                              train_interval=1,
+    agent = DiscreteCQL_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
 
-                              # CQL
-                              min_q_weight=args.min_q_weight,  # the value of alpha in CQL loss, set to 5.0 or 10.0 if not using lagrange
+        # Parameters of OfflineBase
+        data_buffer=data_buffer,
 
-                              max_train_step=args.max_train_step,
-                              log_interval=args.log_interval,
-                              eval_freq=args.eval_freq,
-                              train_id=args.train_id,
-                              resume=args.resume,  # if True, train from last checkpoint
-                              device=args.device
-                              )
+        # Parameters of CQL_Agent
+        Q_net=Q_net,
+        qf_lr=1e-4,
+        eval_eps=0.001,
+        target_update_freq=8000,
+        min_q_weight=args.min_q_weight,  # the value of alpha in CQL loss, set to 5.0 or 10.0 if not using lagrange
+        )
 
     if args.show:
         train_tools.evaluate(agent, 10, show=True)
     else:
         agent.learn()
-

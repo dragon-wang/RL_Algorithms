@@ -84,24 +84,30 @@ if __name__ == '__main__':
                                      capacity=args.capacity,
                                      batch_size=args.batch_size)
 
-    # create agent
-    agent = TD3_Agent(env=env, replay_buffer=replay_buffer,
-                      actor_net=actor_net, critic_net1=critic_net1, critic_net2=critic_net2,
-                      actor_lr=1e-3, critic_lr=1e-3,
-                      gamma=0.99,
-                      tau=0.005,
-                      act_noise=0.1,
-                      policy_noise=0.2,
-                      noise_clip=0.5,
-                      policy_delay=2,
-                      explore_step=args.explore_step,
-                      eval_freq=-1,
-                      max_train_step=args.max_train_step,
-                      train_id=args.train_id,
-                      log_interval=args.log_interval,
-                      resume=args.resume,
-                      device=args.device
-                      )
+    agent = TD3_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
+
+        # Parameters of OffPolicyBase
+        replay_buffer=replay_buffer,
+        explore_step=args.explore_step,
+
+        # Parameters of TD3_Agent
+        actor_net=actor_net, critic_net1=critic_net1, critic_net2=critic_net2,
+        actor_lr=1e-3, critic_lr=1e-3,  # Or 3e-4
+        tau=0.005,
+        act_noise=0.1,
+        policy_noise=0.2,
+        noise_clip=0.5,
+        policy_delay=2,
+        )
 
     if args.show:
         train_tools.evaluate_unity(agent, 10)

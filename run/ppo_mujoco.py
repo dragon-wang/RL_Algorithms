@@ -25,7 +25,7 @@ if __name__ == '__main__':
                         help='the length of trajectory')
     parser.add_argument('--eval_freq', type=int, default=5000,
                         help='how often (time steps) we evaluate during training, and it will not eval if eval_freq < 0')
-    parser.add_argument('--max_time_step', type=int, default=1000000,
+    parser.add_argument('--max_train_step', type=int, default=1000000,
                         help='the max time step to train')
     parser.add_argument('--log_interval', type=int, default=5000,
                         help='The number of steps taken to record the model and the tensorboard')
@@ -76,25 +76,30 @@ if __name__ == '__main__':
                                              act_dim=buffer_act_dim,
                                              capacity=args.traj_length)
 
-    agent = PPO_Agent(env,
-                      trajectory_buffer=trajectory_buffer,
-                      actor_net=actor_net,
-                      critic_net=critic_net,
-                      actor_lr=3e-4,
-                      critic_lr=1e-3,
-                      gamma=0.99,
-                      gae_lambda=0.95,
-                      gae_normalize=args.gae_norm,
-                      clip_pram=0.2,
-                      trajectory_length=args.traj_length,  # the length of a trajectory_
-                      train_actor_iters=80,
-                      train_critic_iters=80,
-                      eval_freq=args.eval_freq,
-                      max_time_step=args.max_time_step,
-                      train_id=args.train_id,
-                      log_interval=args.log_interval,
-                      resume=args.resume,
-                      device=args.device)
+    agent = PPO_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
+
+        # Parameters of PPO_Agent
+        trajectory_buffer=trajectory_buffer,
+        actor_net=actor_net,
+        critic_net=critic_net,
+        actor_lr=3e-4,
+        critic_lr=1e-3,
+        gae_lambda=0.95,
+        gae_normalize=args.gae_norm,
+        clip_pram=0.2,
+        trajectory_length=args.traj_length,  # the length of a trajectory_
+        train_actor_iters=80,
+        train_critic_iters=80,
+        )
 
     if args.show:
         train_tools.evaluate(agent, 10, show=True)

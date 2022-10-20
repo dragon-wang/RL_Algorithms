@@ -63,25 +63,30 @@ if __name__ == '__main__':
         replay_buffer = ReplayBuffer(obs_dim=obs_dim, act_dim=1,
                                      capacity=args.capacity, batch_size=args.batch_size)
 
-    agent = DDQN_Agent(env=env,
-                       replay_buffer=replay_buffer,
-                       Q_net=Q_net,
-                       qf_lr=1e-4,
-                       gamma=0.99,
-                       initial_eps=0.1,
-                       end_eps=0.001,
-                       eps_decay_period=1000000,
-                       eval_eps=0.001,
-                       target_update_freq=1000,
-                       train_interval=1,
-                       explore_step=args.explore_step,
-                       eval_freq=args.eval_freq,
-                       max_train_step=args.max_train_step,
-                       train_id=args.train_id,
-                       log_interval=args.log_interval,
-                       resume=args.resume,
-                       device=args.device
-                       )
+    agent = DDQN_Agent(
+        # parameters of PolicyBase
+        env=env,
+        gamma=0.99,
+        eval_freq=args.eval_freq,
+        max_train_step=args.max_train_step,
+        train_id=args.train_id,
+        log_interval=args.log_interval,
+        resume=args.resume,
+        device=args.device,
+
+        # Parameters of OffPolicyBase
+        replay_buffer=replay_buffer,
+        explore_step=args.explore_step,
+
+        # Parameters of DDQN_Agent
+        Q_net=Q_net,
+        qf_lr=1e-4,
+        initial_eps=0.1,
+        end_eps=0.001,
+        eps_decay_period=1000000,
+        eval_eps=0.001,
+        target_update_freq=1000,
+        )
 
     if args.show:
         train_tools.evaluate(agent, 10, show=True)

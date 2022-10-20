@@ -1,44 +1,28 @@
 import copy
-import os
 import numpy as np
 import torch
 import torch.nn.functional as F
-from common.buffers import ReplayBuffer
-from gym import Env
-from utils.train_tools import soft_target_update, explore_before_train, evaluate
-from utils import log_tools
+from algos.base import OffPolicyBase
+from utils.train_tools import soft_target_update
 
 
-class SAC_Agent:
+class SAC_Agent(OffPolicyBase):
     """
     Implementation of Soft Actor-Critic (SAC)
     https://arxiv.org/abs/1812.05905(SAC 2019)
     """
     def __init__(self,
-                 env: Env,
-                 replay_buffer: ReplayBuffer,
                  policy_net: torch.nn.Module,  # actor
                  q_net1: torch.nn.Module,  # critic
                  q_net2: torch.nn.Module,
                  policy_lr=4e-3,
                  qf_lr=4e-3,
-                 gamma=0.99,
                  tau=0.05,
                  alpha=0.5,
                  auto_alpha_tuning=False,
-                 explore_step=2000,
-                 eval_freq=1000,  # it will not evaluate the agent during train if eval_freq < 0
-                 max_train_step=50000,
-                 train_id="sac_Pendulum_test",
-                 log_interval=1000,
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu'
+                 **kwargs
                  ):
-
-        self.env = env
-        self.replay_buffer = replay_buffer
-
-        self.device = torch.device(device)
+        super().__init__(**kwargs)
 
         # the network and optimizers
         self.policy_net = policy_net.to(self.device)
@@ -50,7 +34,6 @@ class SAC_Agent:
         self.q_optimizer1 = torch.optim.Adam(self.q_net1.parameters(), lr=qf_lr)
         self.q_optimizer2 = torch.optim.Adam(self.q_net2.parameters(), lr=qf_lr)
 
-        self.gamma = gamma
         self.tau = tau
         self.alpha = alpha
         self.auto_alpha_tuning = auto_alpha_tuning
@@ -61,22 +44,6 @@ class SAC_Agent:
             self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=policy_lr)
             self.alpha = torch.exp(self.log_alpha)
 
-        self.explore_step = explore_step
-        self.eval_freq = eval_freq
-        self.max_train_step = max_train_step
-
-        self.train_step = 0
-        self.episode_num = 0
-
-        self.resume = resume  # whether load checkpoint start train from last time
-
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
-
     def choose_action(self, obs, eval=False):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).reshape(1, -1).to(self.device)
@@ -85,7 +52,7 @@ class SAC_Agent:
             if eval:
                 action = mu_action  # if eval, use mu as the action
 
-        return action.cpu().numpy().flatten(), log_prob
+        return action.cpu().numpy().flatten()
 
     def train(self):
 
@@ -144,54 +111,12 @@ class SAC_Agent:
         soft_target_update(self.q_net1, self.target_q_net1, tau=self.tau)
         soft_target_update(self.q_net2, self.target_q_net2, tau=self.tau)
 
-        return q_loss1.cpu().item(), q_loss2.cpu().item(), policy_loss.cpu().item(), alpha_loss.cpu().item()
+        train_summaries = {"actor_loss": policy_loss.cpu().item(),
+                           "critic_loss1": q_loss1.cpu().item(),
+                           "critic_loss2": q_loss2.cpu().item(),
+                           "alpha_loss": alpha_loss.cpu().item()}
 
-    def learn(self):
-        if self.resume:
-            self.load_agent_checkpoint()
-        else:
-            # delete tensorboard log file
-            log_tools.del_all_files_in_dir(self.result_dir)
-        explore_before_train(self.env, self.replay_buffer, self.explore_step)
-        print("==============================start train===================================")
-        obs = self.env.reset()
-        done = False
-
-        episode_reward = 0
-        episode_length = 0
-
-        while self.train_step < self.max_train_step:
-            action, _ = self.choose_action(np.array(obs))
-            next_obs, reward, done, info = self.env.step(action)
-            episode_reward += reward
-            self.replay_buffer.add(obs, action, reward, next_obs, done)
-            obs = next_obs
-            episode_length += 1
-
-            q_loss1, q_loss2, policy_loss, alpha_loss = self.train()
-            if done:
-                obs = self.env.reset()
-                done = False
-                self.episode_num += 1
-
-                print(f"Total T: {self.train_step} Episode Num: {self.episode_num} "
-                      f"Episode Length: {episode_length} Episode Reward: {episode_reward:.3f}")
-                self.tensorboard_writer.log_learn_data({"episode_length": episode_length,
-                                                        "episode_reward": episode_reward}, self.train_step)
-                episode_reward = 0
-                episode_length = 0
-
-            if self.train_step % self.log_interval == 0:
-                self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"q_loss_1": q_loss1,
-                                                        "q_loss_2": q_loss2,
-                                                        "policy_loss": policy_loss,
-                                                        "alpha_loss": alpha_loss}, self.train_step)
-
-            if self.eval_freq > 0 and self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
-                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                       "eval_episode_reward": avg_reward}, self.train_step)
+        return train_summaries
 
     def store_agent_checkpoint(self):
         checkpoint = {
@@ -224,7 +149,3 @@ class SAC_Agent:
             self.alpha_optimizer.load_state_dict(checkpoint["alpha_optimizer"])
         print("load checkpoint from \"" + self.checkpoint_path +
               "\" at " + str(self.train_step) + " time step")
-
-
-
-

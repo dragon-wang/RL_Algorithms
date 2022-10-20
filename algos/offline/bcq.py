@@ -1,21 +1,16 @@
 import copy
-import os
-import numpy as np
 import torch
 import torch.nn.functional as F
-from common.buffers import OfflineBuffer
-from utils.train_tools import soft_target_update, evaluate
-from utils import log_tools
+from algos.base import OfflineBase
+from utils.train_tools import soft_target_update
 
 
-class BCQ_Agent:
+class BCQ_Agent(OfflineBase):
     """
     Implementation of Batch-Constrained deep Q-learning(BCQ) in continuous action space
     https://arxiv.org/abs/1812.02900
     """
     def __init__(self,
-                 env,
-                 data_buffer: OfflineBuffer,
                  critic_net1: torch.nn.Module,
                  critic_net2: torch.nn.Module,
                  perturbation_net: torch.nn.Module,
@@ -23,21 +18,11 @@ class BCQ_Agent:
                  critic_lr=1e-3,
                  per_lr=1e-3,
                  cvae_lr=1e-3,
-
-                 gamma=0.99,
                  tau=0.005,
                  lmbda=0.75,  # used for double clipped double q-learning
-
-                 max_train_step=2000000,
-                 log_interval=1000,
-                 eval_freq=5000,
-                 train_id="sac_Pendulum_test",
-                 resume=False,  # if True, train from last checkpoint
-                 device='cpu',
+                 **kwargs
                  ):
-        self.env = env
-        self.data_buffer = data_buffer
-        self.device = torch.device(device)
+        super().__init__(**kwargs)
 
         self.critic_net1 = critic_net1.to(self.device)
         self.critic_net2 = critic_net2.to(self.device)
@@ -51,22 +36,8 @@ class BCQ_Agent:
         self.perturbation_optimizer = torch.optim.Adam(self.perturbation_net.parameters(), lr=per_lr)
         self.cvae_optimizer = torch.optim.Adam(self.cvae_net.parameters(), lr=cvae_lr)
 
-        self.gamma = gamma
         self.tau = tau
         self.lmbda = lmbda
-
-        self.max_train_step = max_train_step
-        self.eval_freq = eval_freq
-        self.train_step = 0
-
-        self.resume = resume  # whether load checkpoint start train from last time
-
-        # log dir and interval
-        self.log_interval = log_interval
-        self.result_dir = os.path.join(log_tools.ROOT_DIR, "run/results", train_id)
-        log_tools.make_dir(self.result_dir)
-        self.checkpoint_path = os.path.join(self.result_dir, "checkpoint.pth")
-        self.tensorboard_writer = log_tools.TensorboardLogger(self.result_dir)
 
     def choose_action(self, obs, eval=True):
         with torch.no_grad():
@@ -78,7 +49,6 @@ class BCQ_Agent:
         return perturbed_action[ind].cpu().data.numpy().flatten()
 
     def train(self):
-
         # Sample
         batch = self.data_buffer.sample()
         obs = batch["obs"].to(self.device)
@@ -150,30 +120,12 @@ class BCQ_Agent:
 
         self.train_step += 1
 
-        return cvae_loss.cpu().item(), (critic_loss1+critic_loss2).cpu().item(), perturbation_loss.cpu().item()
+        train_summaries = {"cvae_loss": cvae_loss.cpu().item(),
+                           "critic_loss1": critic_loss1.cpu().item(),
+                           "critic_loss2": critic_loss2.cpu().item(),
+                           "perturbation_loss": perturbation_loss.cpu().item()}
 
-    def learn(self):
-        """Train BCQ without interacting with the environment (offline)"""
-        if self.resume:
-            self.load_agent_checkpoint()
-        else:
-            # delete tensorboard log file
-            log_tools.del_all_files_in_dir(self.result_dir)
-
-        while self.train_step < (int(self.max_train_step)):
-            cvae_loss, critic_loss, perturbation_loss = self.train()
-
-            if self.train_step % self.eval_freq == 0:
-                avg_reward, avg_length = evaluate(agent=self, episode_num=10)
-                self.tensorboard_writer.log_eval_data({"eval_episode_length": avg_length,
-                                                       "eval_episode_reward": avg_reward}, self.train_step)
-
-            if self.train_step % self.log_interval == 0:
-                self.store_agent_checkpoint()
-                self.tensorboard_writer.log_train_data({"cvae_loss": cvae_loss,
-                                                        "critic_loss": critic_loss,
-                                                        "perturbation_loss": perturbation_loss
-                                                        }, self.train_step)
+        return train_summaries
 
     def store_agent_checkpoint(self):
         checkpoint = {
@@ -203,6 +155,3 @@ class BCQ_Agent:
 
         print("load checkpoint from \"" + self.checkpoint_path +
               "\" at " + str(self.train_step) + " time step")
-
-
-
